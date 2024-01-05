@@ -1,6 +1,8 @@
 use std::env;
 use std::fs;
 
+mod cpu;
+
 fn usage() {
     panic!("Usage: <program> <path to file>");
 }
@@ -88,11 +90,20 @@ fn main() {
 
     let head = parse_header(&content);
 
-    println!("{:?}", head);
+    if head.mapper_number != 0 {
+        panic!("Rom with mapper {} not supported yet", head.mapper_number);
+    }
 
-    let mut memory: [u8; 0x10000] = [0; 0x10000];
+    // println!("{:?}", head);
 
-    memory[0x8000..].copy_from_slice(&content[..(head.program_size as usize)]);
+    // For now assume program is
+    // let mut memory: [u8; 0x10000] = [0; 0x10000];
+    // memory[(0x10000 - head.program_size as usize)..].copy_from_slice(&content[0x10..(0x10 + head.program_size as usize)]);
 
-    println!("{:02X?}", &memory[0xFFFC..0xFFFD]);
+    let mut nes_cpu: cpu::CPU = cpu::CPU::new();
+
+    nes_cpu.init_memory(&content[0x10..(0x10 + head.program_size as usize)], head.program_size as usize);
+
+
+    println!("{:04x}", head.program_size);
 }
