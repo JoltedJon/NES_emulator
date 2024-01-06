@@ -1,7 +1,8 @@
 use std::env;
 use std::fs;
 
-mod cpu;
+pub mod cpu;
+pub mod instructions;
 
 fn usage() {
     panic!("Usage: <program> <path to file>");

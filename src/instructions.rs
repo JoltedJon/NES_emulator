@@ -82,7 +82,7 @@ struct Instruction {
 
 impl Default for Instruction {
   fn default() -> Self {
-    Self { operation: ADD, Addressing: Immediate, cycle: 0 }
+    Self { operation: Operation::ADC, mode: Addressing::Immediate, cycle: 0 }
   }
 }
 

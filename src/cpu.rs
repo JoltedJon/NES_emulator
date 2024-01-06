@@ -1,6 +1,9 @@
 use bitfield_struct::bitfield;
 
 
+use crate::instructions;
+
+
 #[bitfield(u8)]
 struct Flags {
     carry: bool,
@@ -36,6 +39,10 @@ impl Default for Registers {
             status_flags: Flags::default(),
         }
     }
+}
+
+enum CpuState {
+
 }
 
 pub struct CPU {
