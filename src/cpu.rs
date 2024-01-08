@@ -1,7 +1,9 @@
+#![allow(dead_code)]
+
+
 use bitfield_struct::bitfield;
+use crate::{instructions, utils};
 
-
-use crate::instructions;
 
 
 #[bitfield(u8)]
@@ -20,7 +22,7 @@ struct Flags {
 
 
 struct Registers {
-    accumlator: u8,
+    accumulator: u8,
     reg_x: u8,
     reg_y: u8,
     program_counter: u16,
@@ -31,17 +33,18 @@ struct Registers {
 impl Default for Registers {
     fn default() -> Registers {
         Registers {
-            accumlator: 0,
+            accumulator: 0,
             reg_x: 0,
             reg_y: 0,
             program_counter: 0xFFFC,
-            stack_pointer: 0xFD,
+            stack_pointer: 0xFD,  // TODO this might want to be set to 0?
             status_flags: Flags::default(),
         }
     }
 }
 
-enum CpuState {
+enum CpuStates {
+    Fetch, // Retrieve next opcode
 
 }
 
@@ -52,10 +55,12 @@ pub struct CPU {
 
 impl CPU {
     pub fn new() -> Self {
-        Self {
+        let mut cpu: CPU = Self {
             reg_file: Registers::default(),
             memory: [0; 0x10000],
-        }
+        };
+        cpu.reset();
+        return cpu;
     }
 
     pub fn init_memory(&mut self, program_rom: &[u8], program_size: usize) {
@@ -70,8 +75,394 @@ impl CPU {
     // TODO should I make this behave like
     // https://www.pagetable.com/?p=410
     fn reset(&mut self) {
+        self.reg_file = Registers::default();
         // For now simply setting program counter to value at reset vector
-        self.reg_file.program_counter = self.memory[0xFFFC] as u16 | ((self.memory[0xFFFD] as u16) << 8);
-        self.reg_file.stack_pointer = 0xFD;
+        self.reg_file.program_counter = utils::convert_addr(&self.memory[0xFFFC..0xFFFD]);
+
+        // Supposedly interrupts are default to being disabled
+        self.reg_file.status_flags.set_irq_disable(true);
+    }
+
+
+    fn execute(&mut self, inst: &instructions::Instruction) {
+        // TODO need to gather up data to be executed on
+    }
+}
+
+// Helper functions for instructions executing and such
+impl CPU {
+    fn push(&mut self, byte: u8) {
+        self.memory[0x0100 | (self.reg_file.stack_pointer as usize)] = byte;
+        self.reg_file.stack_pointer -= 1;
+    }
+
+    fn pop(&mut self) -> u8 {
+        self.reg_file.stack_pointer = self.reg_file.stack_pointer.wrapping_add(1);
+        self.memory[0x0100 | (self.reg_file.stack_pointer as usize)]
+    }
+
+    fn pop_addr(&mut self) -> u16 {
+        utils::convert_addr(&[self.pop(), self.pop()])
+    }
+
+    fn push_addr(&mut self, addr: u16) {
+        self.push((addr >> 8) as u8);
+        self.push((addr & 0xFF) as u8);
+    }
+
+    fn set_zero(&mut self, byte: u8) {
+        self.reg_file.status_flags.set_zero(byte == 0);
+    }
+
+    fn set_signed(&mut self, byte: u8) {
+        self.reg_file.status_flags.set_signed((byte as i8) < 0);
+    }
+
+    // General branching
+    // Branches need to wait extra cycle if successful branch
+    fn branch(&mut self, cond: bool, offset: u8) -> bool{
+        if cond {
+            self.reg_file.program_counter = self.reg_file.program_counter.wrapping_add(utils::offset_to_addr(offset));
+        }
+        cond
+    }
+
+    // General Comparing
+    fn compare(&mut self, byte: u8, addr: u16) {
+        let result: u8 = byte - self.memory[addr as usize];
+        self.set_signed(result);
+        self.set_zero(result);
+        self.reg_file.status_flags.set_carry(byte >= self.memory[addr as usize]);
+    }
+
+}
+
+
+// Execution of instructionsbyte
+impl CPU {
+    fn adc(&mut self, addr: u16) {
+        let acc: u8 = self.reg_file.accumulator;
+        let opp: u8 = self.memory[addr as usize];
+
+        // This result shouldn't have any wrapping issues as the highest value this can attain is
+        // 0x101 (255 + 255 + 1)
+        let result: u16 = (acc as u16) + (opp as u16) + (self.reg_file.status_flags.carry() as u16);
+
+        self.reg_file.status_flags.set_carry(result > 0xFF);
+        self.reg_file.status_flags.set_overflow(((acc ^ result as u8) & (opp ^ result as u8)) & 0x80 != 0);
+
+        self.reg_file.accumulator = result as u8;
+        self.set_signed(self.reg_file.accumulator);
+        self.set_zero(self.reg_file.accumulator);
+    }
+
+    fn and(&mut self, addr: u16) {
+        self.reg_file.accumulator &= self.memory[addr as usize];
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(self.reg_file.accumulator);
+    }
+
+    // This is supposed to operate on memory OR accumulator
+    fn asl(&mut self, byte: &mut u8) {
+        self.reg_file.status_flags.set_carry(*byte & 0x80 == 1);
+
+        *byte <<= 1;
+
+        // if byte is the accumulator this should work hopefully
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(*byte);
+    }
+
+    fn bcc(&mut self, offset: u8) -> bool {
+        self.branch(!self.reg_file.status_flags.carry(), offset)
+    }
+
+    fn bcs(&mut self, offset: u8) -> bool {
+        self.branch(self.reg_file.status_flags.carry(), offset)
+    }
+
+    fn beq(&mut self, offset: u8) -> bool {
+        self.branch(self.reg_file.status_flags.zero(), offset)
+    }
+
+    fn bit(&mut self, addr: u16) {
+        self.set_signed(self.memory[addr as usize] & 0x80);
+        self.reg_file.status_flags.set_overflow(self.memory[addr as usize] & 0x40 == 1);
+        self.set_zero(self.reg_file.accumulator & self.memory[addr as usize]);
+    }
+
+    fn bmi(&mut self, offset: u8) -> bool {
+        self.branch(self.reg_file.status_flags.signed(), offset)
+    }
+
+    fn bne(&mut self, offset: u8) -> bool {
+        self.branch(!self.reg_file.status_flags.zero(), offset)
+    }
+
+    fn bpl(&mut self, offset: u8) -> bool {
+        self.branch(!self.reg_file.status_flags.signed(), offset)
+    }
+
+    fn brk(&mut self) {
+        self.push_addr(self.reg_file.program_counter);
+        self.push(self.reg_file.status_flags.into());
+        self.reg_file.program_counter = utils::convert_addr(&self.memory[0xFFFE..0xFFFF]);
+        self.reg_file.status_flags.set_break_flag(true);
+    }
+
+    fn bvc(&mut self, offset: u8) -> bool {
+        self.branch(!self.reg_file.status_flags.overflow(), offset)
+    }
+
+    fn bvs(&mut self, offset: u8) -> bool {
+        self.branch(self.reg_file.status_flags.overflow(), offset)
+    }
+
+    fn clc(&mut self) {
+        self.reg_file.status_flags.set_carry(false);
+    }
+
+    fn cld(&mut self) {
+        self.reg_file.status_flags.set_decimal_mode(false);
+    }
+
+    fn cli(&mut self) {
+        self.reg_file.status_flags.set_irq_disable(false);
+    }
+
+    fn clv(&mut self) {
+        self.reg_file.status_flags.set_overflow(false);
+    }
+
+    fn cmp(&mut self, addr: u16) {
+        self.compare(self.reg_file.accumulator, addr);
+    }
+
+    fn cpx(&mut self, addr: u16) {
+        self.compare(self.reg_file.reg_x, addr);
+    }
+
+    fn cpy(&mut self, addr: u16) {
+        self.compare(self.reg_file.reg_y, addr);
+    }
+
+    fn dec(&mut self, addr: u16) {
+        let result: u8 = self.memory[addr as usize] - 1;
+        self.set_signed(result);
+        self.set_zero(result);
+        self.memory[addr as usize] = result;
+    }
+
+    fn dex(&mut self) {
+        self.reg_file.reg_x -= 1;
+        self.set_zero(self.reg_file.reg_x);
+        self.set_signed(self.reg_file.reg_x);
+    }
+
+    fn dey(&mut self) {
+        self.reg_file.reg_y -= 1;
+        self.set_zero(self.reg_file.reg_y);
+        self.set_signed(self.reg_file.reg_y);
+    }
+
+    fn eor(&mut self, addr: u16) {
+        self.reg_file.accumulator = self.reg_file.accumulator ^ self.memory[addr as usize];
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(self.reg_file.accumulator);
+    }
+
+    fn inc(&mut self, addr: u16) {
+        let result: u8 = self.memory[addr as usize].wrapping_add(1);
+        self.set_signed(result);
+        self.set_zero(result);
+        self.memory[addr as usize] = result;
+    }
+
+    fn inx(&mut self) {
+        self.reg_file.reg_x = self.reg_file.reg_x.wrapping_add(1);
+        self.set_zero(self.reg_file.reg_x);
+        self.set_signed(self.reg_file.reg_x);
+    }
+
+    fn iny(&mut self) {
+        self.reg_file.reg_y = self.reg_file.reg_y.wrapping_add(1);
+        self.set_zero(self.reg_file.reg_y);
+        self.set_signed(self.reg_file.reg_y);
+    }
+
+    fn jmp(&mut self, addr: u16) {
+        self.reg_file.program_counter = addr;
+    }
+
+    fn jsr(&mut self, addr: u16) {
+        // At this point PC should point towards the instruction after JSR
+        self.push_addr(self.reg_file.program_counter);
+        self.reg_file.program_counter = addr;
+    }
+
+    fn lda(&mut self, addr: u16) {
+        self.reg_file.accumulator = self.memory[addr as usize];
+        self.set_signed(self.reg_file.accumulator);
+        self.set_zero(self.reg_file.accumulator);
+    }
+
+    fn ldx(&mut self, addr: u16) {
+        self.reg_file.reg_x = self.memory[addr as usize];
+        self.set_signed(self.reg_file.reg_x);
+        self.set_zero(self.reg_file.reg_x);
+    }
+
+    fn ldy(&mut self, addr: u16) {
+        self.reg_file.reg_y = self.memory[addr as usize];
+        self.set_signed(self.reg_file.reg_y);
+        self.set_zero(self.reg_file.reg_y);
+    }
+
+    fn lsr(&mut self, byte: &mut u8) {
+        self.reg_file.status_flags.set_carry(*byte & 0x01 == 1);
+
+        *byte >>= 1;
+
+        // if byte is the accumulator this should work hopefully
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(*byte);
+    }
+
+    fn nop() {
+        return;
+    }
+
+    fn ora(&mut self, addr: u16) {
+        self.reg_file.accumulator |= self.memory[addr as usize];
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(self.reg_file.accumulator);
+    }
+
+    fn pha(&mut self) {
+        self.push(self.reg_file.accumulator);
+    }
+
+    fn php(&mut self) {
+        self.push(self.reg_file.status_flags.into());
+    }
+
+    fn pla(&mut self) {
+        let acc: u8 = self.pop();
+        self.set_zero(acc);
+        self.set_signed(acc);
+        self.reg_file.accumulator = acc;
+    }
+
+    fn plp(&mut self) {
+        self.reg_file.status_flags = Flags(self.pop());
+    }
+
+    fn rol(&mut self, byte: &mut u8) {
+        let msb: bool = (*byte & 0x80) == 1;
+
+        *byte <<= 1;
+        *byte &= self.reg_file.status_flags.carry() as u8;
+
+        self.reg_file.status_flags.set_carry(msb);
+
+        // TODO if byte is the accumulator this should work hopefully
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(*byte);
+    }
+
+    fn ror(&mut self, byte: &mut u8) {
+        let lsb: bool = (*byte & 0x01) == 1;
+
+        *byte >>= 1;
+        *byte &= (self.reg_file.status_flags.carry() as u8) << 7;
+
+        self.reg_file.status_flags.set_carry(lsb);
+
+        // TODO if byte is the accumulator this should work hopefully
+        self.set_zero(self.reg_file.accumulator);
+        self.set_signed(*byte);
+    }
+
+    fn rti(&mut self) {
+        self.reg_file.status_flags = Flags(self.pop());
+        self.reg_file.program_counter = self.pop_addr();
+    }
+
+    fn rts(&mut self) {
+        self.reg_file.program_counter = self.pop_addr();
+    }
+
+    fn sbc(&mut self, addr: u16) {
+        let acc: u8 = self.reg_file.accumulator;
+        let opp: u8 = self.memory[addr as usize];
+
+        let result: u16 = (acc as u16).wrapping_sub(opp as u16).wrapping_sub(1 - self.reg_file.status_flags.carry() as u16);
+
+        self.reg_file.status_flags.set_carry(result > 0xFF);
+        self.reg_file.status_flags.set_overflow(((acc ^ result as u8) & (opp ^ result as u8)) & 0x80 != 0);
+
+        self.reg_file.accumulator = result as u8;
+        self.set_signed(self.reg_file.accumulator);
+        self.set_zero(self.reg_file.accumulator);
+    }
+
+    fn sec(&mut self) {
+        self.reg_file.status_flags.set_carry(true);
+    }
+
+    fn sed(&mut self) {
+        self.reg_file.status_flags.set_decimal_mode(true);
+    }
+
+    fn sei(&mut self) {
+        self.reg_file.status_flags.set_irq_disable(true);
+    }
+
+    fn sta(&mut self, addr: u16) {
+        self.memory[addr as usize] = self.reg_file.accumulator;
+    }
+
+    fn stx(&mut self, addr: u16) {
+        self.memory[addr as usize] = self.reg_file.reg_x;
+    }
+
+    fn sty(&mut self, addr: u16) {
+        self.memory[addr as usize] = self.reg_file.reg_y;
+    }
+
+    fn tax(&mut self) {
+        self.reg_file.reg_x = self.reg_file.accumulator;
+        self.set_signed(self.reg_file.reg_x);
+        self.set_zero(self.reg_file.reg_x);
+    }
+
+    fn tay(&mut self) {
+        self.reg_file.reg_y = self.reg_file.accumulator;
+        self.set_signed(self.reg_file.reg_y);
+        self.set_zero(self.reg_file.reg_y);
+    }
+
+    fn tsx(&mut self) {
+        self.reg_file.reg_x = self.reg_file.stack_pointer;
+        self.set_signed(self.reg_file.reg_x);
+        self.set_zero(self.reg_file.reg_x);
+    }
+
+    fn txa(&mut self) {
+        self.reg_file.accumulator = self.reg_file.reg_x;
+        self.set_signed(self.reg_file.accumulator);
+        self.set_zero(self.reg_file.accumulator);
+    }
+
+    fn txs(&mut self) {
+        self.reg_file.stack_pointer = self.reg_file.reg_x;
+        self.set_signed(self.reg_file.stack_pointer);
+        self.set_zero(self.reg_file.stack_pointer);
+    }
+
+    fn tya(&mut self) {
+        self.reg_file.accumulator = self.reg_file.reg_y;
+        self.set_signed(self.reg_file.accumulator);
+        self.set_zero(self.reg_file.accumulator);
     }
 }

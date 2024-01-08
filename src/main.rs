@@ -3,6 +3,7 @@ use std::fs;
 
 pub mod cpu;
 pub mod instructions;
+pub mod utils;
 
 fn usage() {
     panic!("Usage: <program> <path to file>");

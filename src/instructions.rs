@@ -1,3 +1,5 @@
+use crate::cpu::CPU;
+
 enum Addressing {
   Implicit,
   Accumulator,
@@ -73,7 +75,7 @@ enum Operation {
   TYA,
 }
 
-struct Instruction {
+pub struct Instruction {
   operation: Operation,
   mode: Addressing,
 
@@ -87,7 +89,7 @@ impl Default for Instruction {
 }
 
 impl Instruction {
-  fn decode_inst(byte: u8) -> Self {
+  pub fn decode_inst(byte: u8) -> Self {
     match byte {
       // ADC
       0x69 => Self { operation: Operation::ADC, mode: Addressing::Immediate, ..Self::default() },
