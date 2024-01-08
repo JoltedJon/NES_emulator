@@ -1,4 +1,4 @@
-; This is a simple test to test the timing of all instructions and if Processor can decode all official Opcodes correctly
+; This is a simple test to test the timing
 .setcpu "65C02"
 
 .segment "HEADER"
