@@ -2,7 +2,7 @@
 
 
 use bitfield_struct::bitfield;
-use crate::{instructions::{self, Instruction}, utils};
+use crate::{instructions::{Instruction, Addressing, Operation}, utils};
 
 
 
@@ -45,8 +45,9 @@ impl Default for Registers {
 
 enum CpuStates {
     Fetch,
-    Decode(u8),
-    Execute(u8),
+    Decode(u8), // How many bytes left to decode
+    Execute,
+    Delay(u8), // Incase certain instructions need a delay after execution
 }
 
 enum Data {
@@ -86,12 +87,10 @@ impl CPU {
     pub fn do_cycle(&mut self) {
         match self.state {
             CpuStates::Fetch => {
-                self.inst = Some(Instruction::decode_inst(self.fetch()));
-                self.reg_file.program_counter += 1;
-                self.next_state();
+                self.fetch_state();
             }
             CpuStates::Decode(x) => todo!(),
-            CpuStates::Execute(x) => todo!(),
+            CpuStates::Execute => todo!(),
         }
     }
 
@@ -108,11 +107,36 @@ impl CPU {
 
 
     fn execute(&mut self) {
-        // TODO need to gather up data to be executed on
+        todo!();
     }
 
-    fn next_state(&mut self) {
-        todo!();
+    fn fetch_state(&mut self) {
+        self.inst = Some(Instruction::decode_inst(self.fetch()));
+        self.reg_file.program_counter += 1;
+        if let Some(inst) = &self.inst {
+            match inst.mode {
+                Addressing::Implicit |
+                Addressing::Accumulator => {
+                    self.data = None;
+                    self.state = CpuStates::Execute;
+                },
+                Addressing::Immediate |
+                Addressing::ZeroPage |
+                Addressing::ZeroPageX |
+                Addressing::ZeroPageY |
+                Addressing::Relative |
+                Addressing::IndexedIndirect |
+                Addressing::IndirectIndexed => {
+                    self.data = Some(Data::Byte(0));
+                    // Need to fetch one more byte for data
+                    self.state = CpuStates::Decode(1);
+                },
+                Addressing::Absolute => todo!(),
+                Addressing::AbsoluteX => todo!(),
+                Addressing::AbsoluteY => todo!(),
+                Addressing::Indirect => todo!(),
+            }
+        }
     }
 }
 
