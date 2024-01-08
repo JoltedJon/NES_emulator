@@ -2,7 +2,7 @@
 
 
 use bitfield_struct::bitfield;
-use crate::{instructions, utils};
+use crate::{instructions::{self, Instruction}, utils};
 
 
 
@@ -44,23 +44,35 @@ impl Default for Registers {
 }
 
 enum CpuStates {
-    Fetch, // Retrieve next opcode
+    Fetch,
+    Decode(u8),
+    Execute(u8),
+}
 
+enum Data {
+    Byte(u8),
+    Addr(u16),
 }
 
 pub struct CPU {
     reg_file: Registers,
     memory: [u8; 0x10000],
+
+    state: CpuStates,
+
+    inst: Option<Instruction>,
+    data: Option<Data>,
 }
 
 impl CPU {
     pub fn new() -> Self {
-        let mut cpu: CPU = Self {
+        Self {
             reg_file: Registers::default(),
             memory: [0; 0x10000],
-        };
-        cpu.reset();
-        return cpu;
+            state: CpuStates::Fetch,
+            inst: None,
+            data: None,
+        }
     }
 
     pub fn init_memory(&mut self, program_rom: &[u8], program_size: usize) {
@@ -68,8 +80,19 @@ impl CPU {
         self.reset();
     }
 
-    pub fn do_cycle() {
-
+    // TODO
+    // Might need to take in something like memory responses for banking
+    // Also might need to send out interrupt stuff
+    pub fn do_cycle(&mut self) {
+        match self.state {
+            CpuStates::Fetch => {
+                self.inst = Some(Instruction::decode_inst(self.fetch()));
+                self.reg_file.program_counter += 1;
+                self.next_state();
+            }
+            CpuStates::Decode(x) => todo!(),
+            CpuStates::Execute(x) => todo!(),
+        }
     }
 
     // TODO should I make this behave like
@@ -84,13 +107,22 @@ impl CPU {
     }
 
 
-    fn execute(&mut self, inst: &instructions::Instruction) {
+    fn execute(&mut self) {
         // TODO need to gather up data to be executed on
+    }
+
+    fn next_state(&mut self) {
+        todo!();
     }
 }
 
 // Helper functions for instructions executing and such
 impl CPU {
+    // Fetches current PC
+    fn fetch(&mut self) -> u8 {
+        self.memory[self.reg_file.program_counter as usize]
+    }
+
     fn push(&mut self, byte: u8) {
         self.memory[0x0100 | (self.reg_file.stack_pointer as usize)] = byte;
         self.reg_file.stack_pointer -= 1;
