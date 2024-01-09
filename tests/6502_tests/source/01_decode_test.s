@@ -32,11 +32,34 @@ RESET:
   ASL $3030       ; Absolute
   ASL $3031, X    ; Absolute, X
 
-  BCC $01         ; Relative
+  BCC *+2         ; Relative
 
-  BCS $01         ; Relative
+  BCS *+2         ; Relative
 
-  BEQ $01         ; Relative
+  BEQ *+2         ; Relative
+
+  BIT $DD         ; Zero Page
+  BIT RESET       ; Absolute
+
+  BMI *+2         ; Relative
+
+  BNE *+2         ; Relative
+
+  BPL *+2         ; Relative
+
+  BRK             ; Implied
+
+  BVC *+2         ; Relative
+
+  BVS *+2         ; Relative
+
+  CLC
+
+  CLD
+
+  CLI
+
+  CLV
 
   CMP #10         ; Immediate
   CMP $AA         ; Zero Page
@@ -47,6 +70,23 @@ RESET:
   CMP ($40, X)    ; (Indirect, X)
   CMP ($41), Y    ; (Indirect), Y
 
+  CPX #10         ; Immediate
+  CPX $AA         ; Zero Page
+  CPX $3030       ; Absolute
+
+  CPY #10         ; Immediate
+  CPY $AA         ; Zero Page
+  CPY $3030       ; Absolute
+
+  DEC $AA         ; Zero Page
+  DEC $10, X      ; Zero Page X
+  DEC $3030       ; Absolute
+  DEC $3031, X    ; Absolute, X
+
+  DEX
+
+  DEY
+
   EOR #10         ; Immediate
   EOR $AA         ; Zero Page
   EOR $10, X      ; Zero Page X
@@ -56,6 +96,22 @@ RESET:
   EOR ($40, X)    ; (Indirect, X)
   EOR ($41), Y    ; (Indirect), Y
 
+  INC $AA         ; Zero Page
+  INC $10, X      ; Zero Page X
+  INC $3030       ; Absolute
+  INC $3031, X    ; Absolute, X
+
+  INX
+
+  INY
+
+  JMP ($FFFC)       ; Indirect
+  JMP NEXT1         ; Absolute
+
+NEXT1:
+  JSR NEXT2       ; Absolute
+
+NEXT2:
   LDA #10         ; Immediate
   LDA $AA         ; Zero Page
   LDA $10, X      ; Zero Page X
@@ -65,48 +121,11 @@ RESET:
   LDA ($40, X)    ; (Indirect, X)
   LDA ($41), Y    ; (Indirect), Y
 
-  ORA #10         ; Immediate
-  ORA $AA         ; Zero Page
-  ORA $10, X      ; Zero Page X
-  ORA $3030       ; Absolute
-  ORA $3031, X    ; Absolute, X
-  ORA $3032, Y    ; Absolute, Y
-  ORA ($40, X)    ; (Indirect, X)
-  ORA ($41), Y    ; (Indirect), Y
-
-  SBC #10         ; Immediate
-  SBC $AA         ; Zero Page
-  SBC $10, X      ; Zero Page X
-  SBC $3030       ; Absolute
-  SBC $3031, X    ; Absolute, X
-  SBC $3032, Y    ; Absolute, Y
-  SBC ($40, X)    ; (Indirect, X)
-  SBC ($41), Y    ; (Indirect), Y
-
-  STA #10         ; Immediate
-  STA $AA         ; Zero Page
-  STA $10, X      ; Zero Page X
-  STA $3030       ; Absolute
-  STA $3031, X    ; Absolute, X
-  STA $3032, Y    ; Absolute, Y
-  STA ($40, X)    ; (Indirect, X)
-  STA ($41), Y    ; (Indirect), Y
-
-  DEC $AA         ; Zero Page
-  DEC $10, X      ; Zero Page X
-  DEC $3030       ; Absolute
-  DEC $3031, X    ; Absolute, X
-
-  INC $AA         ; Zero Page
-  INC $10, X      ; Zero Page X
-  INC $3030       ; Absolute
-  INC $3031, X    ; Absolute, X
-
   LDX #$AA        ; Immediate
   LDX $AA         ; Zero Page
-  LDX $10, X      ; Zero Page X
+  LDX $10, Y      ; Zero Page Y
   LDX $3030       ; Absolute
-  LDX $3031, X    ; Absolute, X
+  LDX $3031, Y    ; Absolute, Y
 
   LDY #$AA        ; Immediate
   LDY $AA         ; Zero Page
@@ -120,6 +139,25 @@ RESET:
   LSR $3030       ; Absolute
   LSR $3031, X    ; Absolute, X
 
+  NOP
+
+  ORA #10         ; Immediate
+  ORA $AA         ; Zero Page
+  ORA $10, X      ; Zero Page X
+  ORA $3030       ; Absolute
+  ORA $3031, X    ; Absolute, X
+  ORA $3032, Y    ; Absolute, Y
+  ORA ($40, X)    ; (Indirect, X)
+  ORA ($41), Y    ; (Indirect), Y
+
+  PHA
+
+  PHP
+
+  PLA
+
+  PLP
+
   ROL A           ; Accumulator
   ROL $AA         ; Zero Page
   ROL $10, X      ; Zero Page X
@@ -132,7 +170,50 @@ RESET:
   ROR $3030       ; Absolute
   ROR $3031, X    ; Absolute, X
 
+  RTI             ; Assumes non-working Processor
 
+  RTS
+
+  SBC #10         ; Immediate
+  SBC $AA         ; Zero Page
+  SBC $10, X      ; Zero Page X
+  SBC $3030       ; Absolute
+  SBC $3031, X    ; Absolute, X
+  SBC $3032, Y    ; Absolute, Y
+  SBC ($40, X)    ; (Indirect, X)
+  SBC ($41), Y    ; (Indirect), Y
+
+  SED
+
+  SEI
+
+  STA $AA         ; Zero Page
+  STA $10, X      ; Zero Page X
+  STA $3030       ; Absolute
+  STA $3031, X    ; Absolute, X
+  STA $3032, Y    ; Absolute, Y
+  STA ($40, X)    ; (Indirect, X)
+  STA ($41), Y    ; (Indirect), Y
+
+  STX $AA         ; Zero Page
+  STX $10, Y      ; Zero Page Y
+  STX $3030       ; Absolute
+
+  STY $AA         ; Zero Page
+  STY $10, X      ; Zero Page X
+  STY $3030       ; Absolute
+
+  TAX
+
+  TAY
+
+  TSX
+
+  TXA
+
+  TXS
+
+  TYA
 
 .segment "RESETVEC"
   .addr $0FAA       ; NMI Vector

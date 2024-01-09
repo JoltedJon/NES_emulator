@@ -63,6 +63,8 @@ pub struct CPU {
 
     inst: Option<Instruction>,
     data: Option<Data>,
+
+    cycle: u64,
 }
 
 impl CPU {
@@ -73,6 +75,7 @@ impl CPU {
             state: CpuStates::Fetch,
             inst: None,
             data: None,
+            cycle: 0,
         }
     }
 
@@ -91,7 +94,10 @@ impl CPU {
             }
             CpuStates::Decode(x) => todo!(),
             CpuStates::Execute => todo!(),
+            CpuStates::Delay(x) => todo!(),
         }
+
+        self.cycle += 1;
     }
 
     // TODO should I make this behave like
@@ -105,36 +111,91 @@ impl CPU {
         self.reg_file.status_flags.set_irq_disable(true);
     }
 
-
-    fn execute(&mut self) {
-        todo!();
-    }
-
+    // Fetch Next opcode and figure out what the next state should be
     fn fetch_state(&mut self) {
         self.inst = Some(Instruction::decode_inst(self.fetch()));
         self.reg_file.program_counter += 1;
-        if let Some(inst) = &self.inst {
-            match inst.mode {
-                Addressing::Implicit |
-                Addressing::Accumulator => {
-                    self.data = None;
-                    self.state = CpuStates::Execute;
-                },
-                Addressing::Immediate |
-                Addressing::ZeroPage |
-                Addressing::ZeroPageX |
-                Addressing::ZeroPageY |
-                Addressing::Relative |
-                Addressing::IndexedIndirect |
-                Addressing::IndirectIndexed => {
-                    self.data = Some(Data::Byte(0));
-                    // Need to fetch one more byte for data
-                    self.state = CpuStates::Decode(1);
-                },
-                Addressing::Absolute => todo!(),
-                Addressing::AbsoluteX => todo!(),
-                Addressing::AbsoluteY => todo!(),
-                Addressing::Indirect => todo!(),
+
+        match self.inst.as_ref().unwrap().mode {
+            Addressing::Implicit |
+            Addressing::Accumulator => {
+                self.data = None;
+                self.state = CpuStates::Execute;
+            },
+            Addressing::Immediate       |
+            Addressing::ZeroPage        |
+            Addressing::ZeroPageX       |
+            Addressing::ZeroPageY       |
+            Addressing::Relative        |
+            Addressing::IndexedIndirect |
+            Addressing::IndirectIndexed => {
+                self.data = Some(Data::Byte(0));
+                self.state = CpuStates::Decode(1);
+            },
+            Addressing::Absolute  |
+            Addressing::AbsoluteX |
+            Addressing::AbsoluteY |
+            Addressing::Indirect  => {
+                self.data = Some(Data::Addr(0));
+                self.state = CpuStates::Decode(2);
+            }
+        }
+
+    }
+
+    fn decode_state(&mut self, mut num_bytes: u8) {
+
+
+        match self.data.as_mut().unwrap() {
+            Data::Byte(_) => self.data = Some(Data::Byte(self.fetch())),
+            Data::Addr(x) => {
+                match num_bytes {
+                    1 => self.data = Some(Data::Addr(*x | ((self.fetch() as u16) << 8))),
+                    2 => self.data = Some(Data::Addr(self.fetch() as u16)),
+                    _ => panic!("Decode State: Impossible Match"),
+                }
+            },
+        }
+
+        num_bytes -= 1;
+        if num_bytes > 0 {
+            self.state = CpuStates::Decode(num_bytes);
+            return;
+        }
+
+        let mut inst = self.inst.as_mut().unwrap();
+
+
+        match inst.mode {
+            Addressing::Implicit => todo!(),
+            Addressing::Accumulator => todo!(),
+            Addressing::Immediate => {
+                self.execute_immediate(&inst);
+
+            },
+            Addressing::ZeroPage => todo!(),
+            Addressing::ZeroPageX => todo!(),
+            Addressing::ZeroPageY => todo!(),
+            Addressing::Relative => todo!(),
+            Addressing::Absolute => todo!(),
+            Addressing::AbsoluteX => todo!(),
+            Addressing::AbsoluteY => todo!(),
+            Addressing::Indirect => todo!(),
+            Addressing::IndexedIndirect => todo!(),
+            Addressing::IndirectIndexed => todo!(),
+        }
+
+
+        self.reg_file.program_counter += 1;
+    }
+
+    // Immediate Instructions run in same cycle as getting all data
+    fn execute_immediate(&mut self, inst: &Instruction) {
+        if let Data::Byte(value) = self.data.as_ref().unwrap() {
+            match inst.operation {
+                Operation::ADC => self.adc(*value),
+                Operation::AND => self.and(*value),
+                _ => panic!("Decode State: Impossible Immediate"),
             }
         }
     }
@@ -196,9 +257,8 @@ impl CPU {
 
 // Execution of instructionsbyte
 impl CPU {
-    fn adc(&mut self, addr: u16) {
+    fn adc(&mut self, opp: u8) {
         let acc: u8 = self.reg_file.accumulator;
-        let opp: u8 = self.memory[addr as usize];
 
         // This result shouldn't have any wrapping issues as the highest value this can attain is
         // 0x101 (255 + 255 + 1)
@@ -212,8 +272,8 @@ impl CPU {
         self.set_zero(self.reg_file.accumulator);
     }
 
-    fn and(&mut self, addr: u16) {
-        self.reg_file.accumulator &= self.memory[addr as usize];
+    fn and(&mut self, value: u8) {
+        self.reg_file.accumulator &= value;
         self.set_zero(self.reg_file.accumulator);
         self.set_signed(self.reg_file.accumulator);
     }
