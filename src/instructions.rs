@@ -1,6 +1,7 @@
 use crate::{cpu::{CPU, Flags}, utils};
 
 
+#[derive(Copy, Clone)]
 pub enum Addressing {
   Implicit,
   Accumulator,
@@ -17,7 +18,7 @@ pub enum Addressing {
   IndirectIndexed,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Operation {
   ADC,
   AND,
@@ -77,6 +78,7 @@ pub enum Operation {
   TYA,
 }
 
+#[derive(Copy, Clone)]
 pub struct Instruction {
   pub operation: Operation,
   pub mode: Addressing,
@@ -250,7 +252,6 @@ impl Instruction {
       0xB1 => Self { operation: Operation::LDA, mode: Addressing::IndirectIndexed, execute_cycles: 5 },
       0x11 => Self { operation: Operation::ORA, mode: Addressing::IndirectIndexed, execute_cycles: 5 },
       0xF1 => Self { operation: Operation::SBC, mode: Addressing::IndirectIndexed, execute_cycles: 5 },
-
       0x91 => Self { operation: Operation::STA, mode: Addressing::IndirectIndexed, execute_cycles: 6 },
 
 
@@ -315,9 +316,133 @@ impl Instruction {
     }
   }
 
-  // Figures out which immediate operation to run
+  fn absolute(&mut self, cpu: &mut CPU) {
+    let addr = cpu.read_memory_addr(cpu.program_counter);
+    let mut byte = cpu.read_memory(addr);
+
+    cpu.program_counter += 2;
+
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::BIT => bit(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::CPX => cpx(cpu, addr),
+      Operation::CPY => cpy(cpu, addr),
+      Operation::DEC => dec(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::INC => inc(cpu, addr),
+      Operation::JMP => jmp(cpu, addr),
+      Operation::JSR => jsr(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::LDX => ldx(cpu, addr),
+      Operation::LDY => ldy(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+      Operation::STX => stx(cpu, addr),
+      Operation::STY => sty(cpu, addr),
+
+      // Weridos
+      Operation::ASL => {
+        asl(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::LSR => {
+        lsr(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROL => {
+        rol(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROR => {
+        ror(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+
+      _ => panic!("Invalid absolute"),
+    }
+  }
+
+  fn absolute_x(&mut self, cpu: &mut CPU) {
+    // TODO need to do page cross checking I think?
+    let addr = cpu.read_memory_addr(cpu.program_counter).wrapping_add(cpu.reg_x as u16);
+    let mut byte = cpu.read_memory(addr);
+
+    cpu.program_counter += 2;
+
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::LDY => ldy(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+      Operation::DEC => dec(cpu, addr),
+      Operation::INC => inc(cpu, addr),
+
+      Operation::ASL => {
+        asl(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROL => {
+        rol(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROR => {
+        ror(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::LSR => {
+        lsr(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+
+      _ => panic!("Invalid absolute, X"),
+    }
+  }
+
+  fn absolute_y(&mut self, cpu: &mut CPU) {
+    // TODO need to do page cross checking I think?
+    let addr = cpu.read_memory_addr(cpu.program_counter).wrapping_add(cpu.reg_y as u16);
+
+    cpu.program_counter += 2;
+
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::LDX => ldx(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+
+      _ => panic!("Invalid absolute, Y"),
+    }
+  }
+
+  fn accumulator(&mut self, cpu: &mut CPU) {
+    let mut byte = cpu.accumulator;
+
+    match self.operation {
+      Operation::ASL => asl(cpu, &mut byte),
+      Operation::LSR => lsr(cpu, &mut byte),
+      Operation::ROL => rol(cpu, &mut byte),
+      Operation::ROR => ror(cpu, &mut byte),
+
+      _ => panic!("Invalid accumulator"),
+    }
+
+    cpu.accumulator = byte;
+  }
+
   fn immediate(&mut self, cpu: &mut CPU) {
-    cpu.program_counter += 1;
     match self.operation {
         Operation::ADC => adc(cpu, cpu.program_counter),
         Operation::AND => and(cpu, cpu.program_counter),
@@ -333,24 +458,245 @@ impl Instruction {
 
         _ => panic!("Invalid immediate"),
     }
+
+    cpu.program_counter += 1;
+  }
+
+  fn implicit(&mut self, cpu: &mut CPU) {
+    match self.operation {
+      Operation::BRK => brk(cpu),
+      Operation::CLC => clc(cpu),
+      Operation::CLD => cld(cpu),
+      Operation::CLI => cli(cpu),
+      Operation::CLV => clv(cpu),
+      Operation::DEX => dex(cpu),
+      Operation::DEY => dey(cpu),
+      Operation::INX => inx(cpu),
+      Operation::INY => iny(cpu),
+      Operation::NOP => nop(),
+      Operation::PHA => pha(cpu),
+      Operation::PHP => php(cpu),
+      Operation::PLA => pla(cpu),
+      Operation::PLP => plp(cpu),
+      Operation::RTI => rti(cpu),
+      Operation::RTS => rts(cpu),
+      Operation::SEC => sec(cpu),
+      Operation::SED => sed(cpu),
+      Operation::SEI => sei(cpu),
+      Operation::TAX => tax(cpu),
+      Operation::TAY => tay(cpu),
+      Operation::TSX => tsx(cpu),
+      Operation::TXA => txa(cpu),
+      Operation::TXS => txs(cpu),
+      Operation::TYA => tya(cpu),
+
+      _ => panic!("Invalid implicit"),
+    }
+
+  }
+
+  fn indirect(&mut self, cpu: &mut CPU) {
+    // TODO need to do page cross checking I think?
+    let addr = cpu.read_memory_addr(cpu.program_counter);
+    let addr = cpu.read_memory_addr(addr);
+
+    cpu.program_counter += 2;
+
+    match self.operation {
+      Operation::JMP => jmp(cpu, addr),
+
+      _ => panic!("Invalid indirect"),
+    }
+  }
+
+  fn indexed_indirect(&mut self, cpu: &mut CPU) {
+    // At PC is zero page address, read it, then add x to it
+    // read the address stored at (memory[pc] + x)
+    let addr = cpu.read_memory(cpu.program_counter).wrapping_add(cpu.reg_x);
+    let addr = cpu.read_memory_addr(addr as u16);
+
+    cpu.program_counter += 1;
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+
+      _ => panic!("Invalid indexed indirect"),
+    }
+  }
+
+  fn indirect_indexed(&mut self, cpu: &mut CPU) {
+    // Current PC byte is an address in zero page,
+    // At that address is another address, read it
+    // Add reg y to that address
+    // addr_1 = memory[pc] (zero page address 0x00-0xFF)
+    // addr_final = memory[addr_1] + register Y
+    let addr = cpu.read_memory(cpu.program_counter) as u16;
+    let addr = cpu.read_memory_addr(addr);
+    let addr = addr.wrapping_add(cpu.reg_y as u16);
+
+    cpu.program_counter += 1;
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+
+      _ => panic!("Invalid indexed indirect"),
+    }
+  }
+
+  fn relative(&mut self, cpu: &mut CPU) -> bool {
+    let offset = cpu.read_memory(cpu.program_counter);
+
+    cpu.program_counter += 1;
+
+    match self.operation {
+      Operation::BCC => bcc(cpu, offset),
+      Operation::BCS => bcs(cpu, offset),
+      Operation::BEQ => beq(cpu, offset),
+      Operation::BMI => bmi(cpu, offset),
+      Operation::BNE => bne(cpu, offset),
+      Operation::BPL => bpl(cpu, offset),
+      Operation::BVC => bvc(cpu, offset),
+      Operation::BVS => bvs(cpu, offset),
+
+      _ => panic!("Invalid relative"),
+    }
+  }
+
+  fn zero_page(&mut self, cpu: &mut CPU) {
+    let addr = cpu.read_memory(cpu.program_counter) as u16;
+
+    let mut byte = cpu.read_memory(addr);
+
+    cpu.program_counter += 1;
+
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::BIT => bit(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::CPX => cpx(cpu, addr),
+      Operation::CPY => cpy(cpu, addr),
+      Operation::DEC => dec(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::INC => inc(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::LDX => ldx(cpu, addr),
+      Operation::LDY => ldy(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+      Operation::STX => stx(cpu, addr),
+      Operation::STY => sty(cpu, addr),
+
+      Operation::ASL => {
+        asl(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::LSR => {
+        lsr(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROL => {
+        rol(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROR => {
+        ror(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+
+      _ => panic!("Invalid zero page"),
+    }
+  }
+
+  fn zero_page_x(&mut self, cpu: &mut CPU) {
+    let addr = cpu.read_memory(cpu.program_counter).wrapping_add(cpu.reg_x) as u16;
+
+    let mut byte = cpu.read_memory(addr);
+
+    cpu.program_counter += 1;
+
+    match self.operation {
+      Operation::ADC => adc(cpu, addr),
+      Operation::AND => and(cpu, addr),
+      Operation::CMP => cmp(cpu, addr),
+      Operation::DEC => dec(cpu, addr),
+      Operation::EOR => eor(cpu, addr),
+      Operation::INC => inc(cpu, addr),
+      Operation::LDA => lda(cpu, addr),
+      Operation::LDY => ldy(cpu, addr),
+      Operation::ORA => ora(cpu, addr),
+      Operation::SBC => sbc(cpu, addr),
+      Operation::STA => sta(cpu, addr),
+      Operation::STY => sty(cpu, addr),
+
+      Operation::ASL => {
+        asl(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::LSR => {
+        lsr(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROL => {
+        rol(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+      Operation::ROR => {
+        ror(cpu, &mut byte);
+        cpu.write_memory(addr, byte);
+      },
+
+      _ => panic!("Invalid zero page, X"),
+    }
+  }
+
+  fn zero_page_y(&mut self, cpu: &mut CPU) {
+    let addr = cpu.read_memory(cpu.program_counter).wrapping_add(cpu.reg_y) as u16;
+
+    cpu.program_counter += 1;
+
+    match self.operation {
+      Operation::LDX => ldx(cpu, addr),
+      Operation::STX => stx(cpu, addr),
+
+      _ => panic!("Invalid zero page, Y"),
+    }
   }
 
   pub fn execute(&mut self, cpu: &mut CPU) -> u8 {
+    cpu.program_counter += 1;
+
+    let mut delay: u8 = 0;
+
     match self.mode {
-        Addressing::Implicit => todo!(),
-        Addressing::Accumulator => todo!(),
-        Addressing::Immediate => todo!(),
-        Addressing::ZeroPage => todo!(),
-        Addressing::ZeroPageX => todo!(),
-        Addressing::ZeroPageY => todo!(),
-        Addressing::Relative => todo!(),
-        Addressing::Absolute => todo!(),
-        Addressing::AbsoluteX => todo!(),
-        Addressing::AbsoluteY => todo!(),
-        Addressing::Indirect => todo!(),
-        Addressing::IndexedIndirect => todo!(),
-        Addressing::IndirectIndexed => todo!(),
+        Addressing::Absolute => self.absolute(cpu),
+        Addressing::AbsoluteX => self.absolute_x(cpu),
+        Addressing::AbsoluteY => self.absolute_y(cpu),
+        Addressing::Accumulator => self.accumulator(cpu),
+        Addressing::Immediate => self.immediate(cpu),
+        Addressing::Implicit => self.implicit(cpu),
+        Addressing::Indirect => self.indirect(cpu),
+        Addressing::IndexedIndirect => self.indexed_indirect(cpu),
+        Addressing::IndirectIndexed => self.indirect_indexed(cpu),
+        Addressing::Relative => delay = self.relative(cpu) as u8,
+        Addressing::ZeroPage => self.zero_page(cpu),
+        Addressing::ZeroPageX => self.zero_page_x(cpu),
+        Addressing::ZeroPageY => self.zero_page_y(cpu),
     }
+    delay
   }
 }
 

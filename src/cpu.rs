@@ -72,12 +72,17 @@ impl CPU {
         self.reset();
     }
 
-    pub fn write_memory(&mut self, address: u16, value: u8) {
-        self.memory[address as usize] = value;
+    pub fn write_memory(&mut self, addr: u16, value: u8) {
+        self.memory[addr as usize] = value;
     }
 
-    pub fn read_memory(&mut self, address: u16) -> u8 {
-        self.memory[address as usize]
+    pub fn read_memory(&mut self, addr: u16) -> u8 {
+        self.memory[addr as usize]
+    }
+
+    // return
+    pub fn read_memory_addr(&mut self, addr: u16) -> u16 {
+        utils::convert_addr(&[self.read_memory(addr), self.read_memory(addr + 1)])
     }
 
     // TODO
@@ -88,14 +93,15 @@ impl CPU {
             CpuStates::Fetch => {
                 self.inst = Some(Instruction::decode_inst(self.fetch()));
 
-                self.state = CpuStates::Execute(self.inst.unwrap().execute_cycles - 1)
+                self.state = CpuStates::Execute(self.inst.as_mut().unwrap().execute_cycles - 1)
             },
             CpuStates::Execute(x) => {
                 if x > 0 {
                     self.state = CpuStates::Execute(x - 1);
                 } else {
                     // Execute will take care of things like changing PC
-                    self.inst.unwrap().execute(self);
+                    let mut inst = self.inst.unwrap();
+                    inst.execute(self);
                     self.state = CpuStates::Fetch;
                 }
             },
