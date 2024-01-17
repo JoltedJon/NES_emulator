@@ -18,7 +18,7 @@ pub enum Addressing {
   IndirectIndexed,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Operation {
   ADC,
   AND,
@@ -312,7 +312,7 @@ impl Instruction {
       // Indirect
       0x6C => Self { operation: Operation::JMP, mode: Addressing::Indirect, execute_cycles: 5 },
 
-      _ => panic!("Instruction Decode: Bytes 0x{} not a valid opcode", byte),
+      _ => panic!("Instruction Decode: Bytes 0x{:x} not a valid opcode", byte),
     }
   }
 
@@ -823,7 +823,7 @@ fn dex(cpu: &mut CPU) {
 }
 
 fn dey(cpu: &mut CPU) {
-    cpu.reg_y = cpu.reg_y.wrapping_sub(1);;
+    cpu.reg_y = cpu.reg_y.wrapping_sub(1);
     cpu.set_zero(cpu.reg_y);
     cpu.set_signed(cpu.reg_y);
 }

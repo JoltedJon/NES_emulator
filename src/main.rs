@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::env;
 use std::fs;
 
@@ -6,7 +8,7 @@ pub mod instructions;
 pub mod utils;
 
 fn usage() {
-    panic!("Usage: <program> <path to file>");
+    panic!("Usage: emulator <path to file>");
 }
 
 fn print_hexdump(bytes: &[u8]) {
@@ -55,6 +57,8 @@ fn parse_header(bytes: &[u8]) -> Header {
     // if let Ok(s) = std::str::from_utf8(&bytes[0..3]) {
     //     println!("{}", s);
     // }
+
+    std::env::set_var("RUST_BACKTRACE", "1");
 
     Header {
         program_size: u32::from(bytes[4]) * 0x4000,
@@ -106,6 +110,9 @@ fn main() {
 
     nes_cpu.init_memory(&content[0x10..(0x10 + head.program_size as usize)], head.program_size as usize);
 
+    loop {
+        nes_cpu.do_cycle();
+    }
 
-    println!("{:04x}", head.program_size);
+
 }

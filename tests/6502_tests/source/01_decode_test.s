@@ -47,7 +47,6 @@ RESET:
 
   BPL *+2         ; Relative
 
-  BRK             ; Implied
 
   BVC *+2         ; Relative
 
@@ -105,7 +104,6 @@ RESET:
 
   INY
 
-  JMP ($FFFC)       ; Indirect
   JMP NEXT1         ; Absolute
 
 NEXT1:
@@ -170,9 +168,9 @@ NEXT2:
   ROR $3030       ; Absolute
   ROR $3031, X    ; Absolute, X
 
-  RTI             ; Assumes non-working Processor
+  ; RTI             ; Assumes non-working Processor
 
-  RTS
+  ; RTS
 
   SBC #10         ; Immediate
   SBC $AA         ; Zero Page
