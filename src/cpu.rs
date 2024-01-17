@@ -95,16 +95,7 @@ impl CPU {
     // Might need to take in something like memory responses for banking
     // Also might need to send out interrupt stuff
     pub fn do_cycle(&mut self) {
-
-
         self.print_state();
-
-
-        // {
-        //     let mut input = String::new();
-        //     std::io::stdin().read_line(&mut input).expect("cannot read user input");
-        // }
-
 
         match self.state {
             CpuStates::Fetch => {
@@ -118,11 +109,14 @@ impl CPU {
                 } else {
                     // Execute will take care of things like changing PC
                     let mut inst = self.inst.unwrap();
-                    if inst.operation == Operation::BRK {
-                        panic!("DONE");
-                    }
 
                     let delay = inst.execute(self);
+
+                    if inst.operation == Operation::BRK {
+                        println!("Break");
+                        let mut input = String::new();
+                        std::io::stdin().read_line(&mut input).expect("cannot read user input");
+                    }
 
                     if delay > 0 {
                         self.state = CpuStates::Delay(delay);
@@ -140,15 +134,14 @@ impl CPU {
     fn print_state(&self) {
         use std::io::Write;
 
-        println!("CPU State Before Cycle({}): {:?}", self.cycle, self.state);
         match self.state {
-            CpuStates::Fetch => {
-                println!("Fetch");
-                println!("\tPC: {:x}", self.program_counter);
+            CpuStates::Fetch | CpuStates::Delay(_) => {
+                return;
             },
             CpuStates::Execute(x) => {
                 if x > 0 {return}
 
+                println!("CPU State Before Cycle({}): {:?}", self.cycle, self.state);
                 println!("Execute: {:?}", self.inst.as_ref().unwrap().operation);
                 println!("\tPC:              {:x}", self.program_counter);
                 println!("\tAccumulator:     {}",   self.accumulator);
@@ -165,9 +158,6 @@ impl CPU {
                 println!("\t\tOverflow:      {}",   self.status_flags.overflow());
                 println!("\t\tSigned:        {}",   self.status_flags.signed());
             },
-            CpuStates::Delay(x) => {
-                println!("Delay {} cycle{}", x, (if x > 1 {"s"} else {""}));
-            }
         }
         println!("\n");
 
@@ -226,6 +216,7 @@ impl CPU {
     // Branches need to wait extra cycle if successful branch
     pub fn branch(&mut self, cond: bool, offset: u8) -> bool{
         if cond {
+            println!("DEBUG: PC: {} + {} ", self.program_counter, offset);
             self.program_counter = self.program_counter.wrapping_add(utils::offset_to_addr(offset));
         }
         cond
