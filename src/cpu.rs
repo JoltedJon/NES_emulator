@@ -216,8 +216,7 @@ impl CPU {
     // Branches need to wait extra cycle if successful branch
     pub fn branch(&mut self, cond: bool, offset: u8) -> bool{
         if cond {
-            println!("DEBUG: PC: {} + {} ", self.program_counter, offset);
-            self.program_counter = self.program_counter.wrapping_add(utils::offset_to_addr(offset));
+            self.program_counter = self.program_counter.wrapping_add_signed((offset as i8).into());
         }
         cond
     }
