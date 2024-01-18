@@ -14,7 +14,7 @@ Loop:
   DEX
   BNE Loop
 
-  BRK
+  BRK #$EA
 
 Interrupt:
   RTI

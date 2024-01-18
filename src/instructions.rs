@@ -1,4 +1,4 @@
-use crate::{cpu::{CPU, Flags}, utils};
+use crate::{cpu::{CPU, Flags}, utils, LOG_INFO};
 
 
 #[derive(Copy, Clone)]
@@ -308,11 +308,13 @@ impl Instruction {
       0x00 => Self { operation: Operation::BRK, mode: Addressing::Implicit, execute_cycles: 7 },
 
 
-
       // Indirect
       0x6C => Self { operation: Operation::JMP, mode: Addressing::Indirect, execute_cycles: 5 },
 
-      _ => panic!("Instruction Decode: Bytes 0x{:x} not a valid opcode", byte),
+      unknown => {
+        LOG_INFO!("decoded unknown byte {}", unknown);
+        Self { operation: Operation::NOP, mode: Addressing::Implicit, execute_cycles: 2 }
+      },
     }
   }
 
