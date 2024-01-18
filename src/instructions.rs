@@ -365,9 +365,11 @@ impl Instruction {
     }
   }
 
-  fn absolute_x(&mut self, cpu: &mut CPU) {
-    // TODO need to do page cross checking I think?
-    let addr = cpu.read_memory_addr(cpu.program_counter).wrapping_add(cpu.reg_x as u16);
+  fn absolute_x(&mut self, cpu: &mut CPU) -> u8 {
+    let addr = cpu.read_memory_addr(cpu.program_counter);
+    let cross = utils::cross_boundary(addr, cpu.reg_x);
+
+    let addr = addr.wrapping_add(cpu.reg_x as u16);
     let mut byte = cpu.read_memory(addr);
 
     cpu.program_counter += 2;
@@ -404,11 +406,15 @@ impl Instruction {
 
       _ => panic!("Invalid absolute, X"),
     }
+
+    cross as u8
   }
 
-  fn absolute_y(&mut self, cpu: &mut CPU) {
-    // TODO need to do page cross checking I think?
-    let addr = cpu.read_memory_addr(cpu.program_counter).wrapping_add(cpu.reg_y as u16);
+  fn absolute_y(&mut self, cpu: &mut CPU) -> u8 {
+    let addr = cpu.read_memory_addr(cpu.program_counter);
+    let cross = utils::cross_boundary(addr, cpu.reg_y);
+
+    let addr = addr.wrapping_add(cpu.reg_y as u16);
 
     cpu.program_counter += 2;
 
@@ -425,6 +431,8 @@ impl Instruction {
 
       _ => panic!("Invalid absolute, Y"),
     }
+
+    cross as u8
   }
 
   fn accumulator(&mut self, cpu: &mut CPU) {
@@ -496,7 +504,6 @@ impl Instruction {
   }
 
   fn indirect(&mut self, cpu: &mut CPU) {
-    // TODO need to do page cross checking I think?
     let addr = cpu.read_memory_addr(cpu.program_counter);
     let addr = cpu.read_memory_addr(addr);
 
@@ -530,7 +537,7 @@ impl Instruction {
     }
   }
 
-  fn indirect_indexed(&mut self, cpu: &mut CPU) {
+  fn indirect_indexed(&mut self, cpu: &mut CPU) -> u8 {
     // Current PC byte is an address in zero page,
     // At that address is another address, read it
     // Add reg y to that address
@@ -538,6 +545,8 @@ impl Instruction {
     // addr_final = memory[addr_1] + register Y
     let addr = cpu.read_memory(cpu.program_counter) as u16;
     let addr = cpu.read_memory_addr(addr);
+
+    let cross = utils::cross_boundary(addr, cpu.reg_y);
     let addr = addr.wrapping_add(cpu.reg_y as u16);
 
     cpu.program_counter += 1;
@@ -553,25 +562,33 @@ impl Instruction {
 
       _ => panic!("Invalid indexed indirect"),
     }
+
+    cross as u8
   }
 
-  fn relative(&mut self, cpu: &mut CPU) -> bool {
+  fn relative(&mut self, cpu: &mut CPU) -> u8 {
     let offset = cpu.read_memory(cpu.program_counter);
+
 
     cpu.program_counter += 1;
 
+    let original_pc = cpu.program_counter;
+    let delay;
+
     match self.operation {
-      Operation::BCC => bcc(cpu, offset),
-      Operation::BCS => bcs(cpu, offset),
-      Operation::BEQ => beq(cpu, offset),
-      Operation::BMI => bmi(cpu, offset),
-      Operation::BNE => bne(cpu, offset),
-      Operation::BPL => bpl(cpu, offset),
-      Operation::BVC => bvc(cpu, offset),
-      Operation::BVS => bvs(cpu, offset),
+      Operation::BCC => delay = bcc(cpu, offset) as u8,
+      Operation::BCS => delay = bcs(cpu, offset) as u8,
+      Operation::BEQ => delay = beq(cpu, offset) as u8,
+      Operation::BMI => delay = bmi(cpu, offset) as u8,
+      Operation::BNE => delay = bne(cpu, offset) as u8,
+      Operation::BPL => delay = bpl(cpu, offset) as u8,
+      Operation::BVC => delay = bvc(cpu, offset) as u8,
+      Operation::BVS => delay = bvs(cpu, offset) as u8,
 
       _ => panic!("Invalid relative"),
     }
+
+    delay + (if (original_pc % 256) != (cpu.program_counter % 256){ 2 } else { 0 })
   }
 
   fn zero_page(&mut self, cpu: &mut CPU) {
@@ -682,19 +699,19 @@ impl Instruction {
     let mut delay: u8 = 0;
 
     match self.mode {
-        Addressing::Absolute => self.absolute(cpu),
-        Addressing::AbsoluteX => self.absolute_x(cpu),
-        Addressing::AbsoluteY => self.absolute_y(cpu),
-        Addressing::Accumulator => self.accumulator(cpu),
-        Addressing::Immediate => self.immediate(cpu),
-        Addressing::Implicit => self.implicit(cpu),
-        Addressing::Indirect => self.indirect(cpu),
+        Addressing::Absolute        => self.absolute(cpu),
+        Addressing::AbsoluteX       => delay = self.absolute_x(cpu),
+        Addressing::AbsoluteY       => delay = self.absolute_y(cpu),
+        Addressing::Accumulator     => self.accumulator(cpu),
+        Addressing::Immediate       => self.immediate(cpu),
+        Addressing::Implicit        => self.implicit(cpu),
+        Addressing::Indirect        => self.indirect(cpu),
         Addressing::IndexedIndirect => self.indexed_indirect(cpu),
-        Addressing::IndirectIndexed => self.indirect_indexed(cpu),
-        Addressing::Relative => delay = self.relative(cpu) as u8,
-        Addressing::ZeroPage => self.zero_page(cpu),
-        Addressing::ZeroPageX => self.zero_page_x(cpu),
-        Addressing::ZeroPageY => self.zero_page_y(cpu),
+        Addressing::IndirectIndexed => delay = self.indirect_indexed(cpu),
+        Addressing::Relative        => delay = self.relative(cpu) as u8,
+        Addressing::ZeroPage        => self.zero_page(cpu),
+        Addressing::ZeroPageX       => self.zero_page_x(cpu),
+        Addressing::ZeroPageY       => self.zero_page_y(cpu),
     }
     delay
   }
@@ -923,12 +940,13 @@ fn plp(cpu: &mut CPU) {
 fn rol(cpu: &mut CPU, byte: &mut u8) {
     let msb: bool = (*byte & 0x80) == 1;
 
+    println!("Before: {}", byte);
     *byte <<= 1;
-    *byte &= cpu.status_flags.carry() as u8;
+    println!("After: {}", byte);
+    *byte |= cpu.status_flags.carry() as u8;
 
     cpu.status_flags.set_carry(msb);
 
-    // TODO if byte is the accumulator this should work hopefully
     cpu.set_zero(cpu.accumulator);
     cpu.set_signed(*byte);
 }
@@ -937,11 +955,10 @@ fn ror(cpu: &mut CPU, byte: &mut u8) {
     let lsb: bool = (*byte & 0x01) == 1;
 
     *byte >>= 1;
-    *byte &= (cpu.status_flags.carry() as u8) << 7;
+    *byte |= (cpu.status_flags.carry() as u8) << 7;
 
     cpu.status_flags.set_carry(lsb);
 
-    // TODO if byte is the accumulator this should work hopefully
     cpu.set_zero(cpu.accumulator);
     cpu.set_signed(*byte);
 }
