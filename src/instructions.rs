@@ -1,4 +1,6 @@
-use crate::{cpu::{CPU, Flags}, utils, LOG_INFO};
+#![allow(dead_code, unused_imports)]
+
+use crate::{cpu::{CPU, Flags}, utils, LOG_INFO, LOG_WARN};
 
 
 #[derive(Copy, Clone)]
@@ -312,7 +314,7 @@ impl Instruction {
       0x6C => Self { operation: Operation::JMP, mode: Addressing::Indirect, execute_cycles: 5 },
 
       unknown => {
-        LOG_INFO!("decoded unknown byte {}", unknown);
+        LOG_WARN!("decoded unknown byte {:#x}", unknown);
         Self { operation: Operation::NOP, mode: Addressing::Implicit, execute_cycles: 2 }
       },
     }
@@ -786,6 +788,7 @@ fn bpl(cpu: &mut CPU, offset: u8) -> bool {
 }
 
 fn brk(cpu: &mut CPU) {
+    // cpu.program_counter += 1;
     cpu.push_addr(cpu.program_counter);
     cpu.push(cpu.status_flags.into());
     cpu.program_counter = utils::convert_addr(&[cpu.read_memory(0xFFFE),cpu.read_memory(0xFFFF)]);

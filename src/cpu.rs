@@ -1,10 +1,10 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused_imports)]
 
 
-use std::any::Any;
+use std::process::exit;
 
 use bitfield_struct::bitfield;
-use crate::{instructions::{Instruction, Operation}, utils};
+use crate::{instructions::{Instruction, Operation}, utils, LOG_INFO, LOG_WARN};
 
 
 
@@ -36,6 +36,90 @@ enum Data {
     Addr(u16),
 }
 
+pub struct Memory {
+    pub internal_ram: [u8; 0x0800],
+
+    pub ppu_ram: [u8; 0x0008],
+
+    pub audio_and_io: [u8; 0x0018],
+    pub io_functionality: [u8; 0x0008],
+
+    pub cartidge_space: [u8; 0xBFE0],
+}
+
+impl Memory {
+    pub fn new() -> Self {
+        Self {
+            internal_ram: [0; 0x0800],
+            ppu_ram: [0; 0x0008],
+            audio_and_io: [0; 0x0018],
+            io_functionality: [0; 0x0008],
+            cartidge_space: [0; 0xBFE0]
+        }
+    }
+
+    pub fn read(&self, addr: u16) -> u8 {
+        // LOG_INFO!("Memory read - Virtual Address: ", addr);
+        match addr {
+            0..=0x1FFF => {
+                let addr = addr % 0x800;
+                // println!("\tInternal Ram: {:0x} -> {:0x}", addr, self.internal_ram[addr as usize]);
+                self.internal_ram[addr as usize]
+            },
+            0x2000..=0x3FFF => {
+                let addr = addr % 0x8;
+                // println!("\tPPU Registers: {:0x} -> {:0x}", addr, self.ppu_ram[addr as usize]);
+                self.ppu_ram[addr as usize]
+            },
+            0x4000..=0x4017 => {
+                let addr = addr % 0x18;
+                // println!("\tAPU and I/O registers: {:0x} -> {:0x}", addr, self.audio_and_io[addr as usize]);
+                self.audio_and_io[addr as usize]
+            },
+            0x4018..=0x401F => {
+                let addr = addr % 0x8;
+                // println!("\tAPU and I/O Functionality: {:0x} -> {:0x}", addr, self.io_functionality[addr as usize]);
+                self.io_functionality[addr as usize]
+            }
+            0x4020..=0xFFFF => {
+                let addr = addr - 0x4020;
+                // println!("\tCartidge Space: {:0x} -> {:0x}", addr, self.cartidge_space[addr as usize]);
+                self.cartidge_space[addr as usize]
+            }
+        }
+    }
+
+    pub fn write(&mut self, addr: u16, byte: u8) {
+        // TODO need to have a way to commit battery backed addresses to memory
+        match addr {
+            0..=0x1FFF => {
+                let addr = addr % 0x800;
+                self.internal_ram[addr as usize] = byte;
+            },
+            0x2000..=0x3FFF => {
+                let addr = addr % 0x8;
+                self.ppu_ram[addr as usize] = byte;
+            },
+            0x4000..=0x4017 => {
+                let addr = addr % 0x18;
+                self.audio_and_io[addr as usize] = byte;
+            },
+            0x4018..=0x401F => {
+                let addr = addr % 0x8;
+                self.io_functionality[addr as usize] = byte;
+            }
+            0x4020..=0xFFFF => {
+                let addr = addr % 0xBFE0;
+                self.cartidge_space[addr as usize] = byte;
+            }
+        }
+    }
+
+    pub fn load_rom(&mut self, program_rom: &[u8], program_size: usize) {
+        self.cartidge_space[(0xBFE0 - program_size)..].copy_from_slice(program_rom);
+    }
+}
+
 pub struct CPU {
     // Registers
     pub accumulator: u8,
@@ -46,7 +130,7 @@ pub struct CPU {
     pub status_flags: Flags,
 
 
-    pub memory: [u8; 0x10000],
+    pub memory: Memory,
 
     state: CpuStates,
 
@@ -65,7 +149,7 @@ impl CPU {
             program_counter: 0xFFFC,
             stack_pointer: 0xFD,
             status_flags: Flags::default(),
-            memory: [0; 0x10000],
+            memory: Memory::new(),
             state: CpuStates::Fetch,
             inst: None,
             data: None,
@@ -74,16 +158,19 @@ impl CPU {
     }
 
     pub fn init_memory(&mut self, program_rom: &[u8], program_size: usize) {
-        self.memory[(0x10000 - program_size)..].copy_from_slice(program_rom);
+        // self.memory[(0x10000 - program_size)..].copy_from_slice(program_rom);
+        self.memory.load_rom(program_rom, program_size);
         self.reset();
     }
 
     pub fn write_memory(&mut self, addr: u16, value: u8) {
-        self.memory[addr as usize] = value;
+        // self.memory[addr as usize] = value;
+        self.memory.write(addr, value);
     }
 
     pub fn read_memory(&mut self, addr: u16) -> u8 {
-        self.memory[addr as usize]
+        // self.memory[addr as usize]
+        self.memory.read(addr)
     }
 
     // return
@@ -96,7 +183,6 @@ impl CPU {
     // Also might need to send out interrupt stuff
     pub fn do_cycle(&mut self) {
         self.print_state();
-
         match self.state {
             CpuStates::Fetch => {
                 self.inst = Some(Instruction::decode_inst(self.fetch()));
@@ -168,8 +254,7 @@ impl CPU {
     // https://www.pagetable.com/?p=410
     fn reset(&mut self) {
         // For now simply setting program counter to value at reset vector
-        self.program_counter = utils::convert_addr(&self.memory[0xFFFC..0xFFFE]);
-
+        self.program_counter = utils::convert_addr(&[self.memory.read(0xFFFC), self.memory.read(0xFFFD)]);
 
         // Supposedly interrupts are default to being disabled
         self.status_flags.set_irq_disable(true);

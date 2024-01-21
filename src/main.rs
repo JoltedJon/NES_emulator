@@ -2,24 +2,19 @@
 
 use std::env;
 use std::fs;
+use std::process::exit;
 
 pub mod cpu;
 pub mod instructions;
 pub mod utils;
+pub mod ppu;
 
 fn usage() {
-    panic!("Usage: emulator <path to file>");
+    println!("Usage: ./emulator <path to file> <optional program counter>");
+    exit(1);
 }
 
-fn print_hexdump(bytes: &[u8]) {
-    for (i, chunk) in bytes.chunks(16).enumerate() {
-        print!("{:04X}  ", i * 16);
-        for b in chunk {
-            print!("{:02X} ", b);
-        }
-        println!();
-    }
-}
+
 
 #[derive(Debug)]
 enum Mirroring {
@@ -42,7 +37,7 @@ struct Header {
     ignore_mirroring: bool,  // if set provide four-screen vram
 
     // Flags 7
-    vs_unisystem: bool,      // TODO what is this
+    vs_unisystem: bool,      // TODO probably not going to implement these two
     playchoice:bool,         // 8 KB of hint screen data stored after CHR data
 
     // Flags 8
@@ -84,9 +79,12 @@ fn parse_header(bytes: &[u8]) -> Header {
 fn main() {
     let args: Vec<String> = env::args().collect();// println!("Contents of {:?}:\n\n", Path::new(path).file_name().unwrap());
 
-    // print_hexdump(&content);
+    let mut pc: Option<u16> =None;
+    if args.len() == 3 {
+        pc = Some(args[2].parse::<u16>().unwrap());
+    }
 
-    if args.len() != 2 {
+    if args.len() > 2 || args.len() > 3 {
         usage();
     }
 
@@ -97,14 +95,11 @@ fn main() {
     let head = parse_header(&content);
 
     if head.mapper_number != 0 {
-        panic!("Rom with mapper {} not supported yet", head.mapper_number);
+        LOG_ERROR!("Rom with mapper ", head.mapper_number, " not supported yet");
+        exit(1);
     }
 
-    // println!("{:?}", head);
-
-    // For now assume program is
-    // let mut memory: [u8; 0x10000] = [0; 0x10000];
-    // memory[(0x10000 - head.program_size as usize)..].copy_from_slice(&content[0x10..(0x10 + head.program_size as usize)]);
+    println!("{:?}", head);
 
     let mut nes_cpu: cpu::CPU = cpu::CPU::new();
 
