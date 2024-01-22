@@ -1,6 +1,8 @@
 #![allow(dead_code, unused_imports)]
 
-use crate::{cpu::{CPU, Flags}, utils, LOG_INFO, LOG_WARN};
+use log::warn;
+
+use crate::{cpu::{CPU, Flags}, utils};
 
 
 #[derive(Copy, Clone)]
@@ -314,7 +316,7 @@ impl Instruction {
       0x6C => Self { operation: Operation::JMP, mode: Addressing::Indirect, execute_cycles: 5 },
 
       unknown => {
-        LOG_WARN!("decoded unknown byte {:#x}", unknown);
+        warn!("decoded unknown byte {:#x}", unknown);
         Self { operation: Operation::NOP, mode: Addressing::Implicit, execute_cycles: 2 }
       },
     }

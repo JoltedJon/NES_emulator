@@ -4,7 +4,7 @@
 use std::process::exit;
 
 use bitfield_struct::bitfield;
-use crate::{instructions::{Instruction, Operation}, utils, LOG_INFO, LOG_WARN};
+use crate::{instructions::{Instruction, Operation}, utils};
 
 
 
@@ -67,17 +67,17 @@ impl Memory {
                 self.internal_ram[addr as usize]
             },
             0x2000..=0x3FFF => {
-                let addr = addr % 0x8;
+                let addr = (addr - 0x2000) % 0x8;
                 // println!("\tPPU Registers: {:0x} -> {:0x}", addr, self.ppu_ram[addr as usize]);
                 self.ppu_ram[addr as usize]
             },
             0x4000..=0x4017 => {
-                let addr = addr % 0x18;
+                let addr = (addr - 0x4000) % 0x18;
                 // println!("\tAPU and I/O registers: {:0x} -> {:0x}", addr, self.audio_and_io[addr as usize]);
                 self.audio_and_io[addr as usize]
             },
             0x4018..=0x401F => {
-                let addr = addr % 0x8;
+                let addr = (addr - 0x4018) % 0x8;
                 // println!("\tAPU and I/O Functionality: {:0x} -> {:0x}", addr, self.io_functionality[addr as usize]);
                 self.io_functionality[addr as usize]
             }
@@ -97,19 +97,19 @@ impl Memory {
                 self.internal_ram[addr as usize] = byte;
             },
             0x2000..=0x3FFF => {
-                let addr = addr % 0x8;
+                let addr = (addr - 0x2000) % 0x8;
                 self.ppu_ram[addr as usize] = byte;
             },
             0x4000..=0x4017 => {
-                let addr = addr % 0x18;
+                let addr = (addr - 0x4000) % 0x18;
                 self.audio_and_io[addr as usize] = byte;
             },
             0x4018..=0x401F => {
-                let addr = addr % 0x8;
+                let addr = (addr - 0x4018) % 0x8;
                 self.io_functionality[addr as usize] = byte;
             }
             0x4020..=0xFFFF => {
-                let addr = addr % 0xBFE0;
+                let addr = addr - 0x4020;
                 self.cartidge_space[addr as usize] = byte;
             }
         }

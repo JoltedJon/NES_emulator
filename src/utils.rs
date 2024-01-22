@@ -15,39 +15,3 @@ pub fn print_hexdump(bytes: &[u8]) {
         println!();
     }
 }
-
-#[macro_use]
-mod log {
-    #[macro_export]
-    macro_rules! LOG_INFO {
-        ($($args:expr),*) => {{
-            print!("\x1b[96m[INFO]\x1b[0m ");
-            $(
-                print!("{}", $args);
-            )*
-            println!("");
-        }};
-    }
-
-    #[macro_export]
-    macro_rules! LOG_WARN {
-        ($($args:expr),*) => {{
-            print!("\x1b[93m[WARNING]\x1b[0m ");
-            $(
-                print!("{}", $args);
-            )*
-            println!("");
-        }};
-    }
-
-    #[macro_export]
-    macro_rules! LOG_ERROR {
-        ($($args:expr),*) => {{
-            print!("\x1b[91m[ERROR]\x1b[0m ");
-            $(
-                print!("{}", $args);
-            )*
-            println!("");
-        }};
-    }
-}
