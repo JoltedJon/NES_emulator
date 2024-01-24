@@ -110,44 +110,44 @@ fn main() -> Result<(), String> {
         exit(1);
     }
 
-    // println!("{:?}", head);
+    println!("{:?}", head);
 
-    let sdl_context = sdl2::init()?;
-    let video_subsystem = sdl_context.video()?;
+    // let sdl_context = sdl2::init()?;
+    // let video_subsystem = sdl_context.video()?;
 
-    let window = video_subsystem
-        .window("rust-sdl2 demo: Video", 800, 600)
-        .position_centered()
-        .opengl()
-        .build()
-        .map_err(|e| e.to_string())?;
+    // let window = video_subsystem
+    //     .window("rust-sdl2 demo: Video", 800, 600)
+    //     .position_centered()
+    //     .opengl()
+    //     .build()
+    //     .map_err(|e| e.to_string())?;
 
-    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+    // let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
 
-    canvas.set_draw_color(Color::RGB(255, 0, 0));
-    canvas.clear();
-    canvas.present();
-    let mut event_pump = sdl_context.event_pump()?;
+    // canvas.set_draw_color(Color::RGB(255, 0, 0));
+    // canvas.clear();
+    // canvas.present();
+    // let mut event_pump = sdl_context.event_pump()?;
 
-    'running: loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                _ => {}
-            }
-        }
+    // 'running: loop {
+    //     for event in event_pump.poll_iter() {
+    //         match event {
+    //             Event::Quit { .. }
+    //             | Event::KeyDown {
+    //                 keycode: Some(Keycode::Escape),
+    //                 ..
+    //             } => break 'running,
+    //             _ => {}
+    //         }
+    //     }
 
-        canvas.clear();
-        canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
-        // The rest of the game loop goes here...
-    }
+    //     canvas.clear();
+    //     canvas.present();
+    //     ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
+    //     // The rest of the game loop goes here...
+    // }
 
-    exit(1);
+    // exit(1);
     let mut nes_cpu: cpu::CPU = cpu::CPU::new();
     nes_cpu.init_memory(&content[0x10..(0x10 + head.program_size as usize)], head.program_size as usize);
 
@@ -156,7 +156,7 @@ fn main() -> Result<(), String> {
         nes_ppu.init_memory(&content[(0x10 + head.program_size as usize)..], head.character_size as usize);
     }
 
-
+    exit(0);
     loop {
         nes_cpu.do_cycle();
     }
