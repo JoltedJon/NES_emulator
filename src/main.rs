@@ -11,10 +11,13 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 
-pub mod cpu;
-pub mod instructions;
+use crate::memory::Memory;
+
+// pub mod cpu;
+// pub mod instructions;
 pub mod utils;
-pub mod ppu;
+// pub mod ppu;
+pub mod memory;
 
 fn usage() {
     println!("Usage: ./emulator <path to file> <optional program counter>");
@@ -30,7 +33,7 @@ enum Mirroring {
 }
 
 #[derive(Debug)]
-struct Header {
+pub struct Header {
     program_size: u32,
     character_size: u32,
 
@@ -147,18 +150,19 @@ fn main() -> Result<(), String> {
     //     // The rest of the game loop goes here...
     // }
 
-    // exit(1);
-    let mut nes_cpu: cpu::CPU = cpu::CPU::new();
-    nes_cpu.init_memory(&content[0x10..(0x10 + head.program_size as usize)], head.program_size as usize);
+    let mut memory: Memory = Memory::new(head, &content[0x10..]);
+
+    // let mut nes_cpu: cpu::CPU = cpu::CPU::new();
+    // nes_cpu.init_memory(&content[0x10..(0x10 + head.program_size as usize)], head.program_size as usize);
 
     // let mut nes_ppu: ppu::PPU = ppu::PPU::new();
     // if head.character_size > 0 {
     //     nes_ppu.init_memory(&content[(0x10 + head.program_size as usize)..], head.character_size as usize);
     // }
 
-    loop {
-        nes_cpu.do_cycle();
-    }
+    // loop {
+    //     nes_cpu.do_cycle();
+    // }
 
     Ok(())
 }
