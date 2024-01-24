@@ -2,7 +2,7 @@
 
 use log::error;
 
-use crate::{utils, Header};
+use crate::{utils, Header, Memory_Request};
 
 pub struct CPU_Memory {
   pub internal_ram: [u8; 0x0800],
@@ -156,6 +156,11 @@ pub struct Memory {
   ppu: PPU_Memory,
 }
 
+pub struct Memory_Response {
+  cpu_response: Option<u8>,
+  ppu_response: Option<u8>
+}
+
 impl Memory {
   // Takes in ROM without the header
   pub fn new(head: Header, bytes: &[u8]) -> Self {
@@ -163,5 +168,21 @@ impl Memory {
       cpu: CPU_Memory::new(&bytes[..(head.program_size as usize)], head.program_size as usize),
       ppu: PPU_Memory::new(&bytes[(head.program_size as usize)..((head.program_size + head.character_size) as usize)], head.character_size as usize)
     }
+  }
+
+  pub fn request(&mut self, cpu_req: Memory_Request, ppu_req: Memory_Request) -> Memory_Response {
+    let mut response: Memory_Response = Memory_Response { cpu_response: None, ppu_response: None };
+
+    match cpu_req {
+      Memory_Request::Read(addr) => response.cpu_response = Some(self.cpu.read(addr)),
+      Memory_Request::Write(addr, byte) => self.cpu.write(addr, byte)
+    }
+
+    match ppu_req {
+      Memory_Request::Read(addr) => response.ppu_response = Some(self.ppu.read(addr)),
+      Memory_Request::Write(addr, byte) => self.ppu.write(addr, byte),
+    }
+
+    response
   }
 }
