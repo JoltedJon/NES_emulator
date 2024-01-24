@@ -151,12 +151,11 @@ fn main() -> Result<(), String> {
     let mut nes_cpu: cpu::CPU = cpu::CPU::new();
     nes_cpu.init_memory(&content[0x10..(0x10 + head.program_size as usize)], head.program_size as usize);
 
-    let mut nes_ppu: ppu::PPU = ppu::PPU::new();
-    if head.character_size > 0 {
-        nes_ppu.init_memory(&content[(0x10 + head.program_size as usize)..], head.character_size as usize);
-    }
+    // let mut nes_ppu: ppu::PPU = ppu::PPU::new();
+    // if head.character_size > 0 {
+    //     nes_ppu.init_memory(&content[(0x10 + head.program_size as usize)..], head.character_size as usize);
+    // }
 
-    exit(0);
     loop {
         nes_cpu.do_cycle();
     }
