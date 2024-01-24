@@ -27,24 +27,9 @@ pub struct Flags {
 #[derive(Debug)]
 enum CpuStates {
     Fetch,
+    Decode(u8),
     Execute(u8),
     Delay(u8),
-}
-
-enum Data {
-    Byte(u8),
-    Addr(u16),
-}
-
-pub struct Memory {
-    pub internal_ram: [u8; 0x0800],
-
-    pub ppu_ram: [u8; 0x0008],
-
-    pub audio_and_io: [u8; 0x0018],
-    pub io_functionality: [u8; 0x0008],
-
-    pub cartidge_space: [u8; 0xBFE0],
 }
 
 pub struct CPU {
@@ -57,12 +42,11 @@ pub struct CPU {
     pub status_flags: Flags,
 
 
-    pub memory: Memory,
 
     state: CpuStates,
 
     inst: Option<Instruction>,
-    data: Option<Data>,
+    data: u16,
 
     cycle: u64,
 }
@@ -76,28 +60,11 @@ impl CPU {
             program_counter: 0xFFFC,
             stack_pointer: 0xFD,
             status_flags: Flags::default(),
-            memory: Memory::new(),
             state: CpuStates::Fetch,
             inst: None,
             data: None,
             cycle: 0,
         }
-    }
-
-    pub fn init_memory(&mut self, program_rom: &[u8], program_size: usize) {
-        // self.memory[(0x10000 - program_size)..].copy_from_slice(program_rom);
-        self.memory.load_rom(program_rom, program_size);
-        self.reset();
-    }
-
-    pub fn write_memory(&mut self, addr: u16, value: u8) {
-        // self.memory[addr as usize] = value;
-        self.memory.write(addr, value);
-    }
-
-    pub fn read_memory(&mut self, addr: u16) -> u8 {
-        // self.memory[addr as usize]
-        self.memory.read(addr)
     }
 
     // return
@@ -108,8 +75,10 @@ impl CPU {
     // TODO
     // Might need to take in something like memory responses for banking
     // Also might need to send out interrupt stuff
-    pub fn do_cycle(&mut self) {
+    pub fn do_cycle(&mut self, mem_res: u8) -> CPU_Request {
         self.print_state();
+        self.cycle += 1;
+
         match self.state {
             CpuStates::Fetch => {
                 self.inst = Some(Instruction::decode_inst(self.fetch()));
@@ -141,7 +110,6 @@ impl CPU {
             CpuStates::Delay(delay) => self.state = if delay == 1 { CpuStates::Fetch } else { CpuStates::Delay(delay - 1) },
         }
 
-        self.cycle += 1;
     }
 
     fn print_state(&self) {

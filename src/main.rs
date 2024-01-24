@@ -88,7 +88,7 @@ pub enum Memory_Request {
   Write(u16, u8),
 }
 
-fn main() -> Result<(), String> {
+fn main() {
   let args: Vec<String> = env::args().collect();// println!("Contents of {:?}:\n\n", Path::new(path).file_name().unwrap());
 
   let mut pc: Option<u16> = None;
