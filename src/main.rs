@@ -89,7 +89,7 @@ pub enum Memory_Request {
 }
 
 fn main() {
-  let args: Vec<String> = env::args().collect();// println!("Contents of {:?}:\n\n", Path::new(path).file_name().unwrap());
+  let args: Vec<String> = env::args().collect();
 
   let mut pc: Option<u16> = None;
   if args.len() == 3 {
@@ -111,7 +111,7 @@ fn main() {
   }
 
   if head.playchoice {
-    error!("Playchoice roms are not supported");
+    error!("Playchoice roms are not supported yet");
     exit(1);
   }
 
