@@ -1,5 +1,6 @@
 #include "cpu.h"
 
+#include <cassert>
 #include <cstdint>
 #include <string>
 
@@ -9,490 +10,640 @@ void CPU::decode(uint8_t byte) {
   switch (byte) {
     // Immediate
     case 0x09:
-      i = {Operation::ORA, AddressingMode::Immediate};
+      op = Operation::ORA;
+      state = States::Immediate;
       break;
     case 0x29:
-      i = {Operation::AND, AddressingMode::Immediate};
+      op = Operation::AND;
+      state = States::Immediate;
       break;
     case 0x49:
-      i = {Operation::EOR, AddressingMode::Immediate};
+      op = Operation::EOR;
+      state = States::Immediate;
       break;
     case 0x69:
-      i = {Operation::ADC, AddressingMode::Immediate};
+      op = Operation::ADC;
+      state = States::Immediate;
       break;
     case 0xA0:
-      i = {Operation::LDY, AddressingMode::Immediate};
+      op = Operation::LDY;
+      state = States::Immediate;
       break;
     case 0xA2:
-      i = {Operation::LDX, AddressingMode::Immediate};
+      op = Operation::LDX;
+      state = States::Immediate;
       break;
     case 0xA9:
-      i = {Operation::LDA, AddressingMode::Immediate};
+      op = Operation::LDA;
+      state = States::Immediate;
       break;
     case 0xC0:
-      i = {Operation::CPY, AddressingMode::Immediate};
+      op = Operation::CPY;
+      state = States::Immediate;
       break;
     case 0xC9:
-      i = {Operation::CMP, AddressingMode::Immediate};
+      op = Operation::CMP;
+      state = States::Immediate;
       break;
     case 0xE0:
-      i = {Operation::CPX, AddressingMode::Immediate};
+      op = Operation::CPX;
+      state = States::Immediate;
       break;
     case 0xE9:
-      i = {Operation::SBC, AddressingMode::Immediate};
+      op = Operation::SBC;
+      state = States::Immediate;
       break;
 
     // Zero Page
     case 0x05:
-      i = {Operation::ORA, AddressingMode::ZeroPage};
+      op = Operation::ORA;
+      state = States::Zero;
       break;
     case 0x24:
-      i = {Operation::BIT, AddressingMode::ZeroPage};
+      op = Operation::BIT;
+      state = States::Zero;
       break;
     case 0x25:
-      i = {Operation::AND, AddressingMode::ZeroPage};
+      op = Operation::AND;
+      state = States::Zero;
       break;
     case 0x45:
-      i = {Operation::EOR, AddressingMode::ZeroPage};
+      op = Operation::EOR;
+      state = States::Zero;
       break;
     case 0x65:
-      i = {Operation::ADC, AddressingMode::ZeroPage};
+      op = Operation::ADC;
+      state = States::Zero;
       break;
     case 0x84:
-      i = {Operation::STY, AddressingMode::ZeroPage};
+      op = Operation::STY;
+      state = States::Zero;
       break;
     case 0x85:
-      i = {Operation::STA, AddressingMode::ZeroPage};
+      op = Operation::STA;
+      state = States::Zero;
       break;
     case 0x86:
-      i = {Operation::STX, AddressingMode::ZeroPage};
+      op = Operation::STX;
+      state = States::Zero;
       break;
     case 0xA4:
-      i = {Operation::LDY, AddressingMode::ZeroPage};
+      op = Operation::LDY;
+      state = States::Zero;
       break;
     case 0xA5:
-      i = {Operation::LDA, AddressingMode::ZeroPage};
+      op = Operation::LDA;
+      state = States::Zero;
       break;
     case 0xA6:
-      i = {Operation::LDX, AddressingMode::ZeroPage};
+      op = Operation::LDX;
+      state = States::Zero;
       break;
     case 0xC4:
-      i = {Operation::CPY, AddressingMode::ZeroPage};
+      op = Operation::CPY;
+      state = States::Zero;
       break;
     case 0xC5:
-      i = {Operation::CMP, AddressingMode::ZeroPage};
+      op = Operation::CMP;
+      state = States::Zero;
       break;
     case 0xE4:
-      i = {Operation::CPX, AddressingMode::ZeroPage};
+      op = Operation::CPX;
+      state = States::Zero;
       break;
     case 0xE5:
-      i = {Operation::SBC, AddressingMode::ZeroPage};
+      op = Operation::SBC;
+      state = States::Zero;
       break;
     case 0x06:
-      i = {Operation::ASL, AddressingMode::ZeroPage};
+      op = Operation::ASL;
+      state = States::Zero;
       break;
     case 0x26:
-      i = {Operation::ROL, AddressingMode::ZeroPage};
+      op = Operation::ROL;
+      state = States::Zero;
       break;
     case 0x46:
-      i = {Operation::LSR, AddressingMode::ZeroPage};
+      op = Operation::LSR;
+      state = States::Zero;
       break;
     case 0x66:
-      i = {Operation::ROR, AddressingMode::ZeroPage};
+      op = Operation::ROR;
+      state = States::Zero;
       break;
     case 0xC6:
-      i = {Operation::DEC, AddressingMode::ZeroPage};
+      op = Operation::DEC;
+      state = States::Zero;
       break;
     case 0xE6:
-      i = {Operation::INC, AddressingMode::ZeroPage};
+      op = Operation::INC;
+      state = States::Zero;
       break;
 
     // Zero Page, X
     case 0x15:
-      i = {Operation::ORA, AddressingMode::ZeroPageX};
+      op = Operation::ORA;
+      state = States::ZeroX;
       break;
     case 0x35:
-      i = {Operation::AND, AddressingMode::ZeroPageX};
+      op = Operation::AND;
+      state = States::ZeroX;
       break;
     case 0x55:
-      i = {Operation::EOR, AddressingMode::ZeroPageX};
+      op = Operation::EOR;
+      state = States::ZeroX;
       break;
     case 0x75:
-      i = {Operation::ADC, AddressingMode::ZeroPageX};
+      op = Operation::ADC;
+      state = States::ZeroX;
       break;
     case 0x94:
-      i = {Operation::STY, AddressingMode::ZeroPageX};
+      op = Operation::STY;
+      state = States::ZeroX;
       break;
     case 0x95:
-      i = {Operation::STA, AddressingMode::ZeroPageX};
+      op = Operation::STA;
+      state = States::ZeroX;
       break;
     case 0xB4:
-      i = {Operation::LDY, AddressingMode::ZeroPageX};
+      op = Operation::LDY;
+      state = States::ZeroX;
       break;
     case 0xB5:
-      i = {Operation::LDA, AddressingMode::ZeroPageX};
+      op = Operation::LDA;
+      state = States::ZeroX;
       break;
     case 0xD5:
-      i = {Operation::CMP, AddressingMode::ZeroPageX};
+      op = Operation::CMP;
+      state = States::ZeroX;
       break;
     case 0xF5:
-      i = {Operation::SBC, AddressingMode::ZeroPageX};
+      op = Operation::SBC;
+      state = States::ZeroX;
       break;
     case 0x16:
-      i = {Operation::ASL, AddressingMode::ZeroPageX};
+      op = Operation::ASL;
+      state = States::ZeroX;
       break;
     case 0x36:
-      i = {Operation::ROL, AddressingMode::ZeroPageX};
+      op = Operation::ROL;
+      state = States::ZeroX;
       break;
     case 0x56:
-      i = {Operation::LSR, AddressingMode::ZeroPageX};
+      op = Operation::LSR;
+      state = States::ZeroX;
       break;
     case 0x76:
-      i = {Operation::ROR, AddressingMode::ZeroPageX};
+      op = Operation::ROR;
+      state = States::ZeroX;
       break;
     case 0xD6:
-      i = {Operation::DEC, AddressingMode::ZeroPageX};
+      op = Operation::DEC;
+      state = States::ZeroX;
       break;
     case 0xF6:
-      i = {Operation::INC, AddressingMode::ZeroPageX};
+      op = Operation::INC;
+      state = States::ZeroX;
       break;
 
     // Zero Page, Y
     case 0xB6:
-      i = {Operation::LDX, AddressingMode::ZeroPageY};
+      op = Operation::LDX;
+      state = States::ZeroY;
       break;
     case 0x96:
-      i = {Operation::STX, AddressingMode::ZeroPageY};
+      op = Operation::STX;
+      state = States::ZeroY;
       break;
 
     // Absolute
     case 0x4C:
-      i = {Operation::JMP, AddressingMode::Absolute};
+      op = Operation::JMP;
+      state = States::Abs1;
       break;
     case 0x6D:
-      i = {Operation::ADC, AddressingMode::Absolute};
+      op = Operation::ADC;
+      state = States::Abs1;
       break;
     case 0x2D:
-      i = {Operation::AND, AddressingMode::Absolute};
+      op = Operation::AND;
+      state = States::Abs1;
       break;
     case 0x2C:
-      i = {Operation::BIT, AddressingMode::Absolute};
+      op = Operation::BIT;
+      state = States::Abs1;
       break;
     case 0xCD:
-      i = {Operation::CMP, AddressingMode::Absolute};
+      op = Operation::CMP;
+      state = States::Abs1;
       break;
     case 0xEC:
-      i = {Operation::CPX, AddressingMode::Absolute};
+      op = Operation::CPX;
+      state = States::Abs1;
       break;
     case 0xCC:
-      i = {Operation::CPY, AddressingMode::Absolute};
+      op = Operation::CPY;
+      state = States::Abs1;
       break;
     case 0xAD:
-      i = {Operation::LDA, AddressingMode::Absolute};
+      op = Operation::LDA;
+      state = States::Abs1;
       break;
     case 0xAE:
-      i = {Operation::LDX, AddressingMode::Absolute};
+      op = Operation::LDX;
+      state = States::Abs1;
       break;
     case 0xAC:
-      i = {Operation::LDY, AddressingMode::Absolute};
+      op = Operation::LDY;
+      state = States::Abs1;
       break;
     case 0x0D:
-      i = {Operation::ORA, AddressingMode::Absolute};
+      op = Operation::ORA;
+      state = States::Abs1;
       break;
     case 0xED:
-      i = {Operation::SBC, AddressingMode::Absolute};
+      op = Operation::SBC;
+      state = States::Abs1;
       break;
     case 0x8D:
-      i = {Operation::STA, AddressingMode::Absolute};
+      op = Operation::STA;
+      state = States::Abs1;
       break;
     case 0x8E:
-      i = {Operation::STX, AddressingMode::Absolute};
+      op = Operation::STX;
+      state = States::Abs1;
       break;
     case 0x8C:
-      i = {Operation::STY, AddressingMode::Absolute};
+      op = Operation::STY;
+      state = States::Abs1;
       break;
     case 0x4D:
-      i = {Operation::EOR, AddressingMode::Absolute};
+      op = Operation::EOR;
+      state = States::Abs1;
       break;
     case 0x0E:
-      i = {Operation::ASL, AddressingMode::Absolute};
+      op = Operation::ASL;
+      state = States::Abs1;
       break;
     case 0x20:
-      i = {Operation::JSR, AddressingMode::Absolute};
+      op = Operation::JSR;
+      state = States::Abs1;
       break;
     case 0x2E:
-      i = {Operation::ROL, AddressingMode::Absolute};
+      op = Operation::ROL;
+      state = States::Abs1;
       break;
     case 0x4E:
-      i = {Operation::LSR, AddressingMode::Absolute};
+      op = Operation::LSR;
+      state = States::Abs1;
       break;
     case 0x6E:
-      i = {Operation::ROR, AddressingMode::Absolute};
+      op = Operation::ROR;
+      state = States::Abs1;
       break;
     case 0xCE:
-      i = {Operation::DEC, AddressingMode::Absolute};
+      op = Operation::DEC;
+      state = States::Abs1;
       break;
     case 0xEE:
-      i = {Operation::INC, AddressingMode::Absolute};
+      op = Operation::INC;
+      state = States::Abs1;
       break;
 
     // Absolute, X
     case 0x7D:
-      i = {Operation::ADC, AddressingMode::AbsoluteX};
+      op = Operation::ADC;
+      state = States::AbsX;
       break;
     case 0x3D:
-      i = {Operation::AND, AddressingMode::AbsoluteX};
+      op = Operation::AND;
+      state = States::AbsX;
       break;
     case 0xFD:
-      i = {Operation::SBC, AddressingMode::AbsoluteX};
+      op = Operation::SBC;
+      state = States::AbsX;
       break;
     case 0xDD:
-      i = {Operation::CMP, AddressingMode::AbsoluteX};
+      op = Operation::CMP;
+      state = States::AbsX;
       break;
     case 0x1D:
-      i = {Operation::ORA, AddressingMode::AbsoluteX};
+      op = Operation::ORA;
+      state = States::AbsX;
       break;
     case 0x5D:
-      i = {Operation::EOR, AddressingMode::AbsoluteX};
+      op = Operation::EOR;
+      state = States::AbsX;
       break;
     case 0xBD:
-      i = {Operation::LDA, AddressingMode::AbsoluteX};
+      op = Operation::LDA;
+      state = States::AbsX;
       break;
     case 0xBC:
-      i = {Operation::LDY, AddressingMode::AbsoluteX};
+      op = Operation::LDY;
+      state = States::AbsX;
       break;
     case 0x9D:
-      i = {Operation::STA, AddressingMode::AbsoluteX};
+      op = Operation::STA;
+      state = States::AbsX;
       break;
     case 0x1E:
-      i = {Operation::ASL, AddressingMode::AbsoluteX};
+      op = Operation::ASL;
+      state = States::AbsX;
       break;
     case 0x3E:
-      i = {Operation::ROL, AddressingMode::AbsoluteX};
+      op = Operation::ROL;
+      state = States::AbsX;
       break;
     case 0x5E:
-      i = {Operation::LSR, AddressingMode::AbsoluteX};
+      op = Operation::LSR;
+      state = States::AbsX;
       break;
     case 0x7E:
-      i = {Operation::ROR, AddressingMode::AbsoluteX};
+      op = Operation::ROR;
+      state = States::AbsX;
       break;
     case 0xDE:
-      i = {Operation::DEC, AddressingMode::AbsoluteX};
+      op = Operation::DEC;
+      state = States::AbsX;
       break;
     case 0xFE:
-      i = {Operation::INC, AddressingMode::AbsoluteX};
+      op = Operation::INC;
+      state = States::AbsX;
       break;
 
     // Absolute, Y
     case 0x79:
-      i = {Operation::ADC, AddressingMode::AbsoluteY};
+      op = Operation::ADC;
+      state = States::AbsY;
       break;
     case 0x39:
-      i = {Operation::AND, AddressingMode::AbsoluteY};
+      op = Operation::AND;
+      state = States::AbsY;
       break;
     case 0xD9:
-      i = {Operation::CMP, AddressingMode::AbsoluteY};
+      op = Operation::CMP;
+      state = States::AbsY;
       break;
     case 0x59:
-      i = {Operation::EOR, AddressingMode::AbsoluteY};
+      op = Operation::EOR;
+      state = States::AbsY;
       break;
     case 0xB9:
-      i = {Operation::LDA, AddressingMode::AbsoluteY};
+      op = Operation::LDA;
+      state = States::AbsY;
       break;
     case 0xBE:
-      i = {Operation::LDX, AddressingMode::AbsoluteY};
+      op = Operation::LDX;
+      state = States::AbsY;
       break;
     case 0x19:
-      i = {Operation::ORA, AddressingMode::AbsoluteY};
+      op = Operation::ORA;
+      state = States::AbsY;
       break;
     case 0xF9:
-      i = {Operation::SBC, AddressingMode::AbsoluteY};
+      op = Operation::SBC;
+      state = States::AbsY;
       break;
-
     case 0x99:
-      i = {Operation::STA, AddressingMode::AbsoluteY};
+      op = Operation::STA;
+      state = States::AbsY;
       break;
 
     // Indexed Indirect
     case 0x61:
-      i = {Operation::ADC, AddressingMode::IndexedIndirect};
+      op = Operation::ADC;
+      state = States::Indexed1;
       break;
     case 0x21:
-      i = {Operation::AND, AddressingMode::IndexedIndirect};
+      op = Operation::AND;
+      state = States::Indexed1;
       break;
     case 0xC1:
-      i = {Operation::CMP, AddressingMode::IndexedIndirect};
+      op = Operation::CMP;
+      state = States::Indexed1;
       break;
     case 0x41:
-      i = {Operation::EOR, AddressingMode::IndexedIndirect};
+      op = Operation::EOR;
+      state = States::Indexed1;
       break;
     case 0xA1:
-      i = {Operation::LDA, AddressingMode::IndexedIndirect};
+      op = Operation::LDA;
+      state = States::Indexed1;
       break;
     case 0x01:
-      i = {Operation::ORA, AddressingMode::IndexedIndirect};
+      op = Operation::ORA;
+      state = States::Indexed1;
       break;
     case 0xE1:
-      i = {Operation::SBC, AddressingMode::IndexedIndirect};
+      op = Operation::SBC;
+      state = States::Indexed1;
       break;
     case 0x81:
-      i = {Operation::STA, AddressingMode::IndexedIndirect};
+      op = Operation::STA;
+      state = States::Indexed1;
       break;
 
     // Indirect Indexed
     case 0x71:
-      i = {Operation::ADC, AddressingMode::IndirectIndexed};
+      op = Operation::ADC;
+      state = States::IndirectIndexed1;
       break;
     case 0x31:
-      i = {Operation::AND, AddressingMode::IndirectIndexed};
+      op = Operation::AND;
+      state = States::IndirectIndexed1;
       break;
     case 0xD1:
-      i = {Operation::CMP, AddressingMode::IndirectIndexed};
+      op = Operation::CMP;
+      state = States::IndirectIndexed1;
       break;
     case 0x51:
-      i = {Operation::EOR, AddressingMode::IndirectIndexed};
+      op = Operation::EOR;
+      state = States::IndirectIndexed1;
       break;
     case 0xB1:
-      i = {Operation::LDA, AddressingMode::IndirectIndexed};
+      op = Operation::LDA;
+      state = States::IndirectIndexed1;
       break;
     case 0x11:
-      i = {Operation::ORA, AddressingMode::IndirectIndexed};
+      op = Operation::ORA;
+      state = States::IndirectIndexed1;
       break;
     case 0xF1:
-      i = {Operation::SBC, AddressingMode::IndirectIndexed};
+      op = Operation::SBC;
+      state = States::IndirectIndexed1;
       break;
     case 0x91:
-      i = {Operation::STA, AddressingMode::IndirectIndexed};
+      op = Operation::STA;
+      state = States::IndirectIndexed1;
       break;
 
     // Accumulator
     case 0x0A:
-      i = {Operation::ASL, AddressingMode::Accumulator};
+      op = Operation::ASL;
+      state = States::Accumulator;
       break;
     case 0x4A:
-      i = {Operation::LSR, AddressingMode::Accumulator};
+      op = Operation::LSR;
+      state = States::Accumulator;
       break;
     case 0x2A:
-      i = {Operation::ROL, AddressingMode::Accumulator};
+      op = Operation::ROL;
+      state = States::Accumulator;
       break;
     case 0x6A:
-      i = {Operation::ROR, AddressingMode::Accumulator};
+      op = Operation::ROR;
+      state = States::Accumulator;
       break;
 
     // Relative
     case 0x90:
-      i = {Operation::BCC, AddressingMode::Relative};
+      op = Operation::BCC;
+      state = States::Branch;
       break;
     case 0xB0:
-      i = {Operation::BCS, AddressingMode::Relative};
+      op = Operation::BCS;
+      state = States::Branch;
       break;
     case 0xF0:
-      i = {Operation::BEQ, AddressingMode::Relative};
+      op = Operation::BEQ;
+      state = States::Branch;
       break;
     case 0x30:
-      i = {Operation::BMI, AddressingMode::Relative};
+      op = Operation::BMI;
+      state = States::Branch;
       break;
     case 0xD0:
-      i = {Operation::BNE, AddressingMode::Relative};
+      op = Operation::BNE;
+      state = States::Branch;
       break;
     case 0x10:
-      i = {Operation::BPL, AddressingMode::Relative};
+      op = Operation::BPL;
+      state = States::Branch;
       break;
     case 0x50:
-      i = {Operation::BVC, AddressingMode::Relative};
+      op = Operation::BVC;
+      state = States::Branch;
       break;
     case 0x70:
-      i = {Operation::BVS, AddressingMode::Relative};
+      op = Operation::BVS;
+      state = States::Branch;
       break;
 
     // Implicit
     case 0x18:
-      i = {Operation::CLC, AddressingMode::Implicit};
+      op = Operation::CLC;
+      state = States::Execute1;
       break;
     case 0x38:
-      i = {Operation::SEC, AddressingMode::Implicit};
+      op = Operation::SEC;
+      state = States::Execute1;
       break;
     case 0x58:
-      i = {Operation::CLI, AddressingMode::Implicit};
+      op = Operation::CLI;
+      state = States::Execute1;
       break;
     case 0x78:
-      i = {Operation::SEI, AddressingMode::Implicit};
+      op = Operation::SEI;
+      state = States::Execute1;
       break;
     case 0x88:
-      i = {Operation::DEY, AddressingMode::Implicit};
+      op = Operation::DEY;
+      state = States::Execute1;
       break;
     case 0x8A:
-      i = {Operation::TXA, AddressingMode::Implicit};
+      op = Operation::TXA;
+      state = States::Execute1;
       break;
     case 0x98:
-      i = {Operation::TYA, AddressingMode::Implicit};
+      op = Operation::TYA;
+      state = States::Execute1;
       break;
     case 0x9A:
-      i = {Operation::TXS, AddressingMode::Implicit};
+      op = Operation::TXS;
+      state = States::Execute1;
       break;
     case 0xA8:
-      i = {Operation::TAY, AddressingMode::Implicit};
+      op = Operation::TAY;
+      state = States::Execute1;
       break;
     case 0xAA:
-      i = {Operation::TAX, AddressingMode::Implicit};
+      op = Operation::TAX;
+      state = States::Execute1;
       break;
     case 0xB8:
-      i = {Operation::CLV, AddressingMode::Implicit};
+      op = Operation::CLV;
+      state = States::Execute1;
       break;
     case 0xBA:
-      i = {Operation::TSX, AddressingMode::Implicit};
+      op = Operation::TSX;
+      state = States::Execute1;
       break;
     case 0xC8:
-      i = {Operation::INY, AddressingMode::Implicit};
+      op = Operation::INY;
+      state = States::Execute1;
       break;
     case 0xCA:
-      i = {Operation::DEX, AddressingMode::Implicit};
+      op = Operation::DEX;
+      state = States::Execute1;
       break;
     case 0xD8:
-      i = {Operation::CLD, AddressingMode::Implicit};
+      op = Operation::CLD;
+      state = States::Execute1;
       break;
     case 0xE8:
-      i = {Operation::INX, AddressingMode::Implicit};
+      op = Operation::INX;
+      state = States::Execute1;
       break;
     case 0xEA:
-      i = {Operation::NOP, AddressingMode::Implicit};
+      op = Operation::NOP;
+      state = States::Execute1;
       break;
     case 0xF8:
-      i = {Operation::SED, AddressingMode::Implicit};
+      op = Operation::SED;
+      state = States::Execute1;
       break;
-
     case 0x08:
-      i = {Operation::PHP, AddressingMode::Implicit};
+      op = Operation::PHP;
+      state = States::Execute1;
       break;
     case 0x48:
-      i = {Operation::PHA, AddressingMode::Implicit};
+      op = Operation::PHA;
+      state = States::Execute1;
       break;
     case 0x28:
-      i = {Operation::PLP, AddressingMode::Implicit};
+      op = Operation::PLP;
+      state = States::Execute1;
       break;
     case 0x68:
-      i = {Operation::PLA, AddressingMode::Implicit};
+      op = Operation::PLA;
+      state = States::Execute1;
       break;
     case 0x40:
-      i = {Operation::RTI, AddressingMode::Implicit};
+      op = Operation::RTI;
+      state = States::Execute1;
       break;
     case 0x60:
-      i = {Operation::RTS, AddressingMode::Implicit};
+      op = Operation::RTS;
+      state = States::Execute1;
       break;
     case 0x00:
-      i = {Operation::BRK, AddressingMode::Implicit};
+      op = Operation::BRK;
+      state = States::Execute1;
       break;
 
     // Indirect
     case 0x6C:
-      i = {Operation::JMP, AddressingMode::Indirect};
+      op = Operation::JMP;
+      state = States::Indirect1;
       break;
 
     default: {
       std::string message = "Decode Error: PC[" + std::to_string(pc - 1) +
                             "] = " + std::to_string(byte);
       warning(message.c_str());
-      i = {Operation::NOP, AddressingMode::Implicit};
+      op = Operation::NOP;
+      state = States::Execute1;
       break;
     }
   }
@@ -503,7 +654,7 @@ void CPU::pushStack(uint8_t val) { memory[0x100 | sp--] = val; }
 uint8_t CPU::popStack() { return memory[0x100 | sp]; }
 
 void CPU::executeImplicit() {
-  switch (i.o) {
+  switch (op) {
     case Operation::CLC:
       CLC();
       break;
@@ -557,7 +708,7 @@ void CPU::executeImplicit() {
     case Operation::SED:
       SED();
       break;
-    // These operations take more than 2 cycles and handle stage separately
+    // These operations take more than 2 cycles and handle state separately
     case Operation::PHP:
       PHP();
       return;
@@ -586,11 +737,11 @@ void CPU::executeImplicit() {
   // All non complex implicit instructions will reach here
   // These reads are put in incase it has an effect on open bus behavior
   (void)memory[pc];
-  stage = 0;
+  state = States::Fetch;
 }
 
 void CPU::executeAccumulator() {
-  switch (i.o) {
+  switch (op) {
     case Operation::ASL:
       ra = ASL(ra);
       break;
@@ -608,12 +759,12 @@ void CPU::executeAccumulator() {
   }
 
   (void)memory[pc];
-  stage = 0;
+  state = States::Fetch;
 }
 
 void CPU::executeImmediate() {
   uint8_t val = memory[pc++];
-  switch (i.o) {
+  switch (op) {
     case Operation::ADC:
       ADC(val);
       break;
@@ -650,266 +801,372 @@ void CPU::executeImmediate() {
     default:
       error("Invalid Immediate Operation");
   }
-  stage = 0;
+  state = States::Fetch;
 }
 
-template <typename F>
-void CPU::readModifyWrite(F func) {
-  static uint8_t val = 0;
-  switch (stage) {
-    case 3:
-      val = memory[addr];
-      break;
-    case 4:
-      memory[addr] = val;
-      break;
-    case 5:
-      func(val);
-      memory[addr] = func(val);
-      stage = 0;
-      return;
+bool CPU::executeBranch() {
+  if (state == States::Branch) {
+    switch (op) {
+      case Operation::BCC:
+        return BCC();
+      case Operation::BCS:
+        return BCS();
+      case Operation::BEQ:
+        return BEQ();
+      case Operation::BMI:
+        return BMI();
+      case Operation::BNE:
+        return BNE();
+      case Operation::BPL:
+        return BPL();
+      case Operation::BVC:
+        return BVC();
+      case Operation::BVS:
+        return BVS();
+      default:
+        error("Not a branch instruction");
+    }
   }
-  stage++;
+
+  switch (state) {
+    case States::Execute1:
+      (void)memory[pc];  // Open bus
+      if (((pc & 0xFF) + static_cast<int8_t>(value)) > 0xFF) {
+        state = States::Execute2;
+      } else {
+        pc += static_cast<int8_t>(value);
+        state = States::Fetch;
+      }
+      break;
+    case States::Execute2:
+      (void)memory[(pc & 0xFF00) | ((pc + value) & 0x00FF)];  // Open bus
+      pc += static_cast<int8_t>(value);
+      state = States::Fetch;
+      break;
+    default:
+      error("Invalid Branch Case");
+  }
+
+  return false;
 }
 
-void CPU::executeAbsolute() {
-  if (stage == 1) {
-    addr = memory[pc++];
-    stage++;
-    return;
-  } else if (stage == 2) {
-    addr |= (static_cast<uint16_t>(memory[pc++]) << 8);
-    stage++;
-
-    // JMP executes in 3 cycles and can continue past here
-    if (i.o != Operation::JMP) return;
-  }
-
-  switch (i.o) {
+void CPU::executeInstruction() {
+  // Value and Addr should be set before this function is set
+  switch (op) {
+    // Into Registers only
+    case Operation::ADC:
+      ADC(value);
+      break;
+    case Operation::AND:
+      AND(value);
+      break;
+    case Operation::BIT:
+      BIT(value);
+      break;
+    case Operation::CMP:
+      CMP(value);
+      break;
+    case Operation::CPX:
+      CPX(value);
+      break;
+    case Operation::CPY:
+      CPY(value);
+      break;
+    case Operation::EOR:
+      EOR(value);
+      break;
+    case Operation::LDA:
+      LDA(value);
+      break;
+    case Operation::LDX:
+      LDX(value);
+      break;
+    case Operation::LDY:
+      LDY(value);
+      break;
+    case Operation::ORA:
+      ORA(value);
+      break;
+    case Operation::SBC:
+      SBC(value);
+      break;
+    // Into Memory (Accumulator ones handled specifically in DoCycle)
+    case Operation::ASL:
+      memory[addr] = ASL(value);
+      break;
+    case Operation::LSR:
+      memory[addr] = LSR(value);
+      break;
+    case Operation::ROL:
+      memory[addr] = ROL(value);
+      break;
+    case Operation::ROR:
+      memory[addr] = ROR(value);
+      break;
+    case Operation::DEC:
+      memory[addr] = DEC(value);
+      break;
+    case Operation::INC:
+      memory[addr] = INC(value);
+      break;
+    // Stores
+    case Operation::STA:
+      STA(addr);
+      break;
+    case Operation::STX:
+      STX(addr);
+      break;
+    case Operation::STY:
+      STY(addr);
+      break;
+    // Jumps
     case Operation::JMP:
       JMP(addr);
       break;
-
-    // Read Instructions
-    case Operation::ADC:
-      ADC(memory[addr]);
+    case Operation::JSR:
+      JSR(addr);
       break;
-    case Operation::AND:
-      AND(memory[addr]);
-      break;
-    case Operation::BIT:
-      BIT(memory[addr]);
-      break;
-    case Operation::CMP:
-      CMP(memory[addr]);
-      break;
-    case Operation::CPX:
-      CPX(memory[addr]);
-      break;
-    case Operation::CPY:
-      CPY(memory[addr]);
-      break;
-    case Operation::EOR:
-      EOR(memory[addr]);
-      break;
-    case Operation::LDA:
-      LDA(memory[addr]);
-      break;
-    case Operation::LDX:
-      LDX(memory[addr]);
-      break;
-    case Operation::LDY:
-      LDY(memory[addr]);
-      break;
-    case Operation::ORA:
-      ORA(memory[addr]);
-      break;
-    case Operation::SBC:
-      SBC(memory[addr]);
-      break;
-
-    // Read, Modify, Write
-    case Operation::ASL:
-      readModifyWrite([this](uint8_t val) { return ASL(val); });
+    // Implicit
+    case Operation::CLC:
+    case Operation::SEC:
+    case Operation::CLI:
+    case Operation::SEI:
+    case Operation::DEY:
+    case Operation::TXA:
+    case Operation::TYA:
+    case Operation::TXS:
+    case Operation::TAY:
+    case Operation::TAX:
+    case Operation::CLV:
+    case Operation::TSX:
+    case Operation::INY:
+    case Operation::DEX:
+    case Operation::CLD:
+    case Operation::INX:
+    case Operation::NOP:
+    case Operation::SED:
+    case Operation::PHP:
+    case Operation::PHA:
+    case Operation::PLP:
+    case Operation::PLA:
+    case Operation::RTI:
+    case Operation::RTS:
+    case Operation::BRK:
+      executeImplicit();
       return;
-    case Operation::LSR:
-      readModifyWrite([this](uint8_t val) { return LSR(val); });
-      return;
-    case Operation::ROL:
-      readModifyWrite([this](uint8_t val) { return ROL(val); });
-      return;
-    case Operation::ROR:
-      readModifyWrite([this](uint8_t val) { return ROR(val); });
-      return;
-    case Operation::INC:
-      readModifyWrite([this](uint8_t val) { return INC(val); });
-      return;
-    case Operation::DEC:
-      readModifyWrite([this](uint8_t val) { return DEC(val); });
-      return;
-
-    // Write
-    case Operation::STA:
-      STA(addr);
-      break;
-    case Operation::STX:
-      STX(addr);
-      break;
-    case Operation::STY:
-      STY(addr);
-      break;
-    default:
-      error("Invalid Absolute Operation");
-  }
-  stage = 0;
-}
-
-void CPU::executeZeroPage() {
-  if (stage == 1) {
-    addr = memory[pc++];
-    stage++;
-    return;
-  }
-
-  switch (i.o) {
-    // Read
-    case Operation::ADC:
-      ADC(memory[addr]);
-      break;
-    case Operation::AND:
-      AND(memory[addr]);
-      break;
-    case Operation::BIT:
-      BIT(memory[addr]);
-      break;
-    case Operation::CMP:
-      CMP(memory[addr]);
-      break;
-    case Operation::CPX:
-      CPX(memory[addr]);
-      break;
-    case Operation::CPY:
-      CPY(memory[addr]);
-      break;
-    case Operation::LDA:
-      LDA(memory[addr]);
-      break;
-    case Operation::LDX:
-      LDX(memory[addr]);
-      break;
-    case Operation::LDY:
-      LDY(memory[addr]);
-      break;
-    case Operation::EOR:
-      EOR(memory[addr]);
-      break;
-    case Operation::ORA:
-      ORA(memory[addr]);
-      break;
-    case Operation::SBC:
-      SBC(memory[addr]);
-      break;
-
-    // Write
-    case Operation::STA:
-      STA(addr);
-      break;
-    case Operation::STX:
-      STX(addr);
-      break;
-    case Operation::STY:
-      STY(addr);
-      break;
-
-    // Read, Modify, Write
-    case Operation::ASL:
-      readModifyWrite([this](uint8_t val) { return ASL(val); });
-      return;
-    case Operation::LSR:
-      readModifyWrite([this](uint8_t val) { return LSR(val); });
-      return;
-    case Operation::ROL:
-      readModifyWrite([this](uint8_t val) { return ROL(val); });
-      return;
-    case Operation::ROR:
-      readModifyWrite([this](uint8_t val) { return ROR(val); });
-      return;
-    case Operation::INC:
-      readModifyWrite([this](uint8_t val) { return INC(val); });
-      return;
-    case Operation::DEC:
-      readModifyWrite([this](uint8_t val) { return DEC(val); });
+    case Operation::BCC:
+    case Operation::BCS:
+    case Operation::BEQ:
+    case Operation::BMI:
+    case Operation::BNE:
+    case Operation::BPL:
+    case Operation::BVC:
+    case Operation::BVS:
+      executeBranch();
       return;
 
     default:
-      error("Invalid Zero Page Operation");
+      error("Invalid Instruction in Execute Instruction");
   }
-  stage = 0;
+  state = States::Fetch;
 }
-
-void CPU::executeZeroPageX() { throw NotImplemented(); }
-void CPU::executeZeroPageY() { throw NotImplemented(); }
-void CPU::executeRelative() { throw NotImplemented(); }
-void CPU::executeAbsoluteX() { throw NotImplemented(); }
-void CPU::executeAbsoluteY() { throw NotImplemented(); }
-void CPU::executeIndirect() { throw NotImplemented(); }
-void CPU::executeIndexedIndirect() { throw NotImplemented(); }
-void CPU::executeIndirectIndexed() { throw NotImplemented(); }
 
 void CPU::doCycle() {
-  // Fetch stage
-  if (stage == 0) {
-    decode(memory[pc++]);
-    stage++;
-    return;
-  }
-
-  switch (i.am) {
-    case AddressingMode::Implicit:
-      executeImplicit();
-      break;
-    case AddressingMode::Accumulator:
+  switch (state) {
+    case States::Fetch:
+      decode(memory[pc++]);  // State transition in Decode
+      assert(state != States::Fetch);
+      return;
+    case States::Accumulator:
       executeAccumulator();
-      break;
-    case AddressingMode::Immediate:
+      return;
+    case States::Immediate:
       executeImmediate();
+      return;
+    case States::Branch:
+      value = memory[pc++];
+      if (!executeBranch()) {
+        state = States::Fetch;
+      } else {
+        state = States::Execute1;
+      }
       break;
-    case AddressingMode::ZeroPage:
-      executeZeroPage();
+    case States::Zero:
+      addr = memory[pc++];
+      if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
+                Operation::ROR, Operation::INC, Operation::DEC)) {
+        state = States::RMWStall1;
+      } else if (is_in(op, Operation::STA, Operation::STX, Operation::STY)) {
+        state = States::Execute1;
+      } else {
+        state = States::Read;
+      }
+      return;
+    case States::ZeroX:
+      addr = memory[pc++];
+      state = States::ZeroXY;
+      value = rx;
       break;
-    case AddressingMode::ZeroPageX:
-      executeZeroPageX();
+    case States::ZeroY:
+      addr = memory[pc++];
+      state = States::ZeroXY;
+      value = ry;
+    case States::ZeroXY:
+      addr = (memory[addr] + value) & 0xFF;
+      if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
+                Operation::ROR, Operation::INC, Operation::DEC)) {
+        state = States::RMWStall1;
+      } else if (is_in(op, Operation::STA, Operation::STX, Operation::STY)) {
+        state = States::Execute1;
+      } else {
+        state = States::Read;
+      }
+      return;
+    case States::Abs1:
+      addr = memory[pc++];
+      state = States::Abs2;
+      return;
+    case States::Abs2:
+      addr |= static_cast<uint16_t>(memory[pc++]) << 8;
+      if (op == Operation::JMP) {
+        executeInstruction();
+      } else if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
+                       Operation::ROR, Operation::INC, Operation::DEC)) {
+        state = States::RMWStall1;
+      } else if (is_in(op, Operation::STA, Operation::STX, Operation::STY)) {
+        state = States::Execute1;
+      } else {
+        state = States::Read;
+      }
+      return;
+    case States::RMWStall1:
+      value = memory[addr];
+      state = States::RMWStall2;
       break;
-    case AddressingMode::ZeroPageY:
-      executeZeroPageY();
+    case States::RMWStall2:
+      assert(memory[addr] == value);
+      memory[addr] = value;
+      state = States::Execute1;
       break;
-    case AddressingMode::Relative:
-      executeRelative();
+    case States::AbsX:
+      addr = memory[pc++];
+      state = States::AbsXY;
+      value = rx;
       break;
-    case AddressingMode::Absolute:
-      executeAbsolute();
+    case States::AbsY:
+      addr = memory[pc++];
+      state = States::AbsXY;
+      value = ry;
       break;
-    case AddressingMode::AbsoluteX:
-      executeAbsoluteX();
+    case States::AbsXY:
+      addr |= static_cast<uint16_t>(memory[pc++]) << 8;
+      // Writes cannot be undone so have to ensure address is completely correct
+      // before doing write
+      if (((addr & 0xFF) + value) > 0xFF ||
+          is_in(op, Operation::STA, Operation::STX, Operation::STY,
+                Operation::ASL, Operation::LSR, Operation::ROL, Operation::ROR,
+                Operation::INC, Operation::DEC)) {
+        state = States::AbsFix;
+      } else {
+        state = States::Read;
+        addr += value;
+      }
       break;
-    case AddressingMode::AbsoluteY:
-      executeAbsoluteY();
+    case States::AbsFix:
+      (void)memory[(addr & 0xFF00) |
+                   ((addr + value) & 0x00FF)];  // Open bus behavior
+      addr += value;
+      if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
+                Operation::ROR, Operation::INC, Operation::DEC)) {
+        state = States::RMWStall1;
+      } else if (is_in(op, Operation::STA, Operation::STX, Operation::STY)) {
+        state = States::Execute1;
+      } else {
+        state = States::Read;
+      }
       break;
-    case AddressingMode::Indirect:
-      executeIndirect();
+    case States::Indexed1:
+      addr = memory[pc++];
+      state = States::Indexed2;
       break;
-    case AddressingMode::IndexedIndirect:
-      executeIndexedIndirect();
+    case States::Indexed2:
+      addr = (memory[addr] + rx) & 0xFF;  // Only do zero page operations
+      state = States::Indexed3;
       break;
-    case AddressingMode::IndirectIndexed:
-      executeIndirectIndexed();
+    case States::Indexed3:
+      value = memory[addr];  // Value is address Low
+      state = States::Indexed4;
       break;
+    case States::Indexed4:
+      addr = (static_cast<uint16_t>(memory[addr + 1]) << 8) | value;
+      if (op == Operation::STA) {
+        state = States::Execute1;
+      } else {
+        state = States::Read;
+      }
+      break;
+    case States::IndirectIndexed1:
+      value = memory[pc++];  // Value is pointer
+      state = States::IndirectIndexed2;
+      break;
+    case States::IndirectIndexed2:
+      addr = memory[value];
+      state = States::IndirectIndexed3;
+      break;
+    case States::IndirectIndexed3:
+      addr |= memory[(value + 1) & 0xFF];
+      if (((addr & 0xFF) + ry) > 0xFF || (op == Operation::STA)) {
+        state = States::IndirectIndexedFix;
+      } else {
+        addr += ry;
+        state = States::Read;
+      }
+      break;
+    case States::IndirectIndexedFix:
+      (void)memory[(addr & 0xFF00) | ((addr + ry) & 0x00FF)];  // Open bus
+      addr += ry;
+      state = States::Read;
+      break;
+    case States::Indirect1:
+      addr = memory[pc++];
+      state = States::Indirect2;
+      break;
+    case States::Indirect2:
+      addr |= static_cast<uint16_t>(memory[pc++]) << 8;
+      state = States::Indirect3;
+      break;
+    case States::Indirect3:
+      value = memory[addr];
+      state = States::Indirect4;
+      break;
+    case States::Indirect4:
+      pc = (static_cast<uint16_t>(
+                memory[(addr & 0xFF00) | ((addr + 1) & 0x00FF)])
+            << 8) |
+           value;
+      state = States::Fetch;
+      break;
+    case States::Read:
+      value = memory[addr];
+      state = States::Execute1;
+      // Fall through to Execute Instruction
+    case States::Execute1:
+    case States::Execute2:
+    case States::Execute3:
+    case States::Execute4:
+    case States::Execute5:
+    case States::Execute6:
+      executeInstruction();
+      return;
+    default:
+      throw NotImplemented();
   }
 }
 
 /////////////////////////////////////////////////////////////////////////////////
-//                                Instructions //
+//                                Instructions
 /////////////////////////////////////////////////////////////////////////////////
+#pragma region Instructions
 
 // Into Register
 
@@ -1047,14 +1304,14 @@ uint8_t CPU::INC(uint8_t val) {
 
 // Branches
 
-bool CPU::BCC(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BCS(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BEQ(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BMI(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BNE(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BPL(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BVC(uint8_t offset) { throw NotImplemented(); }
-bool CPU::BVS(uint8_t offset) { throw NotImplemented(); }
+bool CPU::BCC() { return !rf.carry; }
+bool CPU::BCS() { return rf.carry; }
+bool CPU::BEQ() { return rf.zero; }
+bool CPU::BMI() { return rf.sign; }
+bool CPU::BNE() { return !rf.zero; }
+bool CPU::BPL() { return !rf.sign; }
+bool CPU::BVC() { return !rf.overflow; }
+bool CPU::BVS() { return rf.overflow; }
 
 // Unconditional Jumps
 
@@ -1074,26 +1331,31 @@ void CPU::JMP(uint16_t addr) { pc = addr; }
 void CPU::JSR(uint16_t addr) {
   static uint16_t newPC = 0;
 
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       newPC = memory[pc++];
+      state = States::Execute2;
       break;
-    case 2:
+    case States::Execute2:
       (void)memory[0x0100 | sp];
+      state = States::Execute3;
       break;
-    case 3:
+    case States::Execute3:
       pushStack(pc >> 8);
+      state = States::Execute4;
       break;  // Push PC High
-    case 4:
+    case States::Execute4:
       pushStack(pc & 0xFF);
+      state = States::Execute5;
       break;  // Push PC Low
-    case 5:
+    case States::Execute5:
       newPC |= memory[pc] << 8;
       pc = newPC;
-      stage = 0;
+      state = States::Fetch;
       return;
+    default:
+      error("Invalid JSR state");
   }
-  stage++;
 }
 
 // Stores
@@ -1162,27 +1424,29 @@ PHA, PHP
   3  $0100,S  W  push register on stack, decrement S
 */
 void CPU::PHA() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)memory[pc];
-      stage++;
-    case 2:
+      state = States::Execute2;
+      break;
+    case States::Execute2:
       pushStack(ra);
-      stage = 0;
+      state = States::Fetch;
+      break;
     default:
       error("Invalid PHA stage");
   }
 }
 
 void CPU::PHP() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)memory[pc];
-      stage++;
+      state = States::Execute2;
       return;
-    case 2:
+    case States::Execute2:
       pushStack(getStatus());
-      stage = 0;
+      state = States::Fetch;
       return;
     default:
       error("Invalid PHP stage");
@@ -1200,44 +1464,46 @@ PLA, PLP
   4  $0100,S  R  pull register from stack
 */
 void CPU::PLA() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)memory[pc];
+      state = States::Execute2;
       break;
-    case 2:
+    case States::Execute2:
       sp++;
+      state = States::Execute3;
       break;
-    case 3:
+    case States::Execute3:
       ra = popStack();
       setZero(ra);
       setSign(ra);
-      stage = 0;
+      state = States::Fetch;
       return;
     default:
       error("Invalid PLA stage");
   }
-  stage++;
 }
 
 void CPU::PLP() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)memory[pc];
+      state = States::Execute2;
       break;
-    case 2:
+    case States::Execute2:
       sp++;
+      state = States::Execute3;
       break;
-    case 3: {
+    case States::Execute3: {
       FlagConversion fc;
       fc.byte = popStack();
       rf = fc.f;
-      stage = 0;
+      state = States::Fetch;
       return;
     }
     default:
       error("Invalid PLP stage");
   }
-  stage++;
 }
 
 /*
@@ -1251,54 +1517,59 @@ void CPU::PLP() {
   6  $0100,S  R  pull PCH from stack
 */
 void CPU::RTI() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)memory[pc];
+      state = States::Execute2;
       break;
-    case 2:
+    case States::Execute2:
       sp++;
+      state = States::Execute3;
       break;
-    case 3: {
+    case States::Execute3: {
       FlagConversion fc;
       fc.byte = popStack();
       rf = fc.f;
       sp++;
+      state = States::Execute4;
       break;
     }
-    case 4:
+    case States::Execute4:
       pc = popStack();
       sp++;
+      state = States::Execute5;
       break;
-    case 5:
+    case States::Execute5:
       pc = static_cast<uint16_t>(popStack()) << 8;
-      stage = 0;
+      state = States::Fetch;
       return;
     default:
       error("Invalid RTI stage");
   }
-  stage++;
 }
 
 void CPU::RTS() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)memory[pc];
+      state = States::Execute2;
       break;
-    case 2:
+    case States::Execute2:
       sp++;
+      state = States::Execute3;
       break;
-    case 3:
+    case States::Execute3:
       pc = popStack();
       sp++;
+      state = States::Execute4;
       break;
-    case 4:
+    case States::Execute4:
       pc = static_cast<uint16_t>(popStack()) << 8;
-      stage = 0;
+      state = States::Fetch;
       return;
     default:
       error("Invalid RTS  stage");
   }
-  stage++;
 }
 
 /*
@@ -1314,33 +1585,38 @@ void CPU::RTS() {
   7   $FFFF   R  fetch PCH
 */
 void CPU::BRK() {
-  switch (stage) {
-    case 1:
+  switch (state) {
+    case States::Execute1:
       (void)
           memory[pc++];  // Read and discard next instruction then increment pc;
+      state = States::Execute2;
       break;
-    case 2:
+    case States::Execute2:
       pushStack(pc >> 8);  // Push PC high
+      state = States::Execute3;
       break;
-    case 3:
+    case States::Execute3:
       pushStack(pc & 0xFF);  // Push PC low
+      state = States::Execute4;
       break;
-    case 4: {
+    case States::Execute4:
       rf.breakFlag = true;
       pushStack(getStatus());
+      state = States::Execute5;
       break;
-    }
-    case 5:
+    case States::Execute5:
       pc = memory[0xFFFE];
+      state = States::Execute6;
       break;
-    case 6: {
+    case States::Execute6: {
       uint16_t pcHigh = memory[0xFFFF];
       pc |= pcHigh << 8;
-      stage = 0;
+      state = States::Fetch;
       return;
     }
     default:
       error("Invalid BRK stage");
   }
-  stage++;
 }
+
+#pragma endregion

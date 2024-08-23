@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-enum Operation {
+enum class Operation {
   ADC,
   AND,
   ASL,
@@ -61,27 +61,6 @@ enum Operation {
   TYA
 };
 
-enum AddressingMode {
-  Implicit,
-  Accumulator,
-  Immediate,
-  ZeroPage,
-  ZeroPageX,
-  ZeroPageY,
-  Relative,
-  Absolute,
-  AbsoluteX,
-  AbsoluteY,
-  Indirect,
-  IndexedIndirect,
-  IndirectIndexed
-};
-
-struct Instruction {
-  Operation o;
-  AddressingMode am;
-};
-
 struct StatusFlags {
   bool carry : 1;
   bool zero : 1;
@@ -110,6 +89,55 @@ union FlagConversion {
   FlagConversion() : f() {}
 };
 
+enum class States {
+  Fetch,
+
+  Abs1,
+  Abs2,
+
+  AbsX,
+  AbsY,
+  AbsXY,
+  AbsFix,
+
+  Zero,
+  ZeroX,
+  ZeroY,
+  ZeroXY,
+
+  Indexed1,
+  Indexed2,
+  Indexed3,
+  Indexed4,
+
+  IndirectIndexed1,
+  IndirectIndexed2,
+  IndirectIndexed3,
+  IndirectIndexedFix,
+
+  Indirect1,  // Only for JMP
+  Indirect2,
+  Indirect3,
+  Indirect4,
+
+  RMWStall1,
+  RMWStall2,
+
+  Accumulator,
+  Immediate,
+
+  Branch,
+
+  Read,
+
+  Execute1,
+  Execute2,
+  Execute3,
+  Execute4,
+  Execute5,
+  Execute6,
+};
+
 class CPU {
  private:
   // Registers
@@ -120,12 +148,15 @@ class CPU {
   uint8_t sp;   // Stack Pointer
   StatusFlags rf;
 
-  Instruction i;
+  // Instruction i;
+  Operation op;
 
-  int stage;     // Used for keeping track of execution of instruction
-  uint8_t addr;  // For any addresses that need to be modified per cycle
+  States state;
 
-  char *memory;  // TODO placeholder
+  uint16_t addr;  // For any addresses that need to be modified per cycle
+  uint8_t value;
+
+  char* memory;  // TODO placeholder
 
  public:
   void doCycle();
@@ -148,21 +179,9 @@ class CPU {
   void executeImplicit();
   void executeAccumulator();
   void executeImmediate();
+  bool executeBranch();
 
-  template <typename F>
-  void readModifyWrite(F func);
-
-  void executeAbsolute();
-
-  void executeZeroPage();
-  void executeZeroPageX();
-  void executeZeroPageY();
-  void executeRelative();
-  void executeAbsoluteX();
-  void executeAbsoluteY();
-  void executeIndirect();
-  void executeIndexedIndirect();
-  void executeIndirectIndexed();
+  void executeInstruction();
 
   void __compare(uint8_t first, uint8_t second);
 
@@ -187,18 +206,20 @@ class CPU {
   uint8_t LSR(uint8_t val);
   uint8_t ROL(uint8_t val);
   uint8_t ROR(uint8_t val);
+
+  // Into Memory
   uint8_t DEC(uint8_t val);
   uint8_t INC(uint8_t val);
 
   // Branches
-  bool BCC(uint8_t offset);
-  bool BCS(uint8_t offset);
-  bool BEQ(uint8_t offset);
-  bool BMI(uint8_t offset);
-  bool BNE(uint8_t offset);
-  bool BPL(uint8_t offset);
-  bool BVC(uint8_t offset);
-  bool BVS(uint8_t offset);
+  bool BCC();
+  bool BCS();
+  bool BEQ();
+  bool BMI();
+  bool BNE();
+  bool BPL();
+  bool BVC();
+  bool BVS();
 
   // Unconditional Jumps
   void JMP(uint16_t addr);

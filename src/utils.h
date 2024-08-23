@@ -44,3 +44,8 @@ inline void __error(const char* file, size_t line, const char* message) {
 #define info(message) __info(message)
 #define warning(message) __warning(message)
 #define error(message) __error(__FILE__, __LINE__, message)
+
+template <typename First, typename... T>
+bool is_in(First&& first, T&&... t) {
+  return ((first == t) || ...);
+}
