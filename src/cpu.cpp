@@ -6,6 +6,17 @@
 
 #include "utils.h"
 
+// Simulated on power up
+CPU::CPU() : ra(0), rx(0), ry(0), sp(0), rf() { reset(); }
+
+void CPU::reset() {
+  rf.irqDisable = true;
+  // TODO
+
+  // Reset Vector
+  pc = memory[0xFFFC] | (static_cast<uint16_t>(memory[0xFFFD]) << 8);
+}
+
 void CPU::decode(uint8_t byte) {
   switch (byte) {
     // Immediate
@@ -639,8 +650,8 @@ void CPU::decode(uint8_t byte) {
       break;
 
     default: {
-      std::string message = "Decode Error: PC[" + std::to_string(pc - 1) +
-                            "] = " + std::to_string(byte);
+      std::string message =
+          "Decode Error: PC:" + to_hex(pc) + " = " + to_hex(byte);
       warning(message.c_str());
       op = Operation::NOP;
       state = States::Execute1;
@@ -731,7 +742,8 @@ void CPU::executeImplicit() {
       BRK();
       return;
     default:
-      error("Invalid Implicit Operation");
+      error(("Invalid Implicit Operation - PC: " + to_hex(pc) + " " + opMap[op])
+                .c_str());
   }
 
   // All non complex implicit instructions will reach here
@@ -755,7 +767,9 @@ void CPU::executeAccumulator() {
       ra = ROR(ra);
       break;
     default:
-      error("Invalid Accumulator Operation");
+      error(("Invalid Accumulator Operation - PC: " + to_hex(pc) + " " +
+             opMap[op])
+                .c_str());
   }
 
   (void)memory[pc];
@@ -799,7 +813,9 @@ void CPU::executeImmediate() {
       SBC(val);
       break;
     default:
-      error("Invalid Immediate Operation");
+      error(
+          ("Invalid Immediate Operation - PC: " + to_hex(pc) + " " + opMap[op])
+              .c_str());
   }
   state = States::Fetch;
 }
@@ -824,7 +840,8 @@ bool CPU::executeBranch() {
       case Operation::BVS:
         return BVS();
       default:
-        error("Not a branch instruction");
+        error(("Invalid Branch Operation - PC: " + to_hex(pc) + " " + opMap[op])
+                  .c_str());
     }
   }
 
@@ -844,7 +861,9 @@ bool CPU::executeBranch() {
       state = States::Fetch;
       break;
     default:
-      error("Invalid Branch Case");
+      error(("Invalid Branch Case - PC: " + to_hex(pc) +
+             " Cycle: " + std::to_string(cycle))
+                .c_str());
   }
 
   return false;
@@ -966,23 +985,27 @@ void CPU::executeInstruction() {
       return;
 
     default:
-      error("Invalid Instruction in Execute Instruction");
+      error(
+          ("Invalid Execute Instruction - PC: " + to_hex(pc) + " " + opMap[op])
+              .c_str());
   }
   state = States::Fetch;
 }
 
 void CPU::doCycle() {
+  ++cycle;
   switch (state) {
     case States::Fetch:
+      addDebugInfo();
       decode(memory[pc++]);  // State transition in Decode
       assert(state != States::Fetch);
-      return;
+      break;
     case States::Accumulator:
       executeAccumulator();
-      return;
+      break;
     case States::Immediate:
       executeImmediate();
-      return;
+      break;
     case States::Branch:
       value = memory[pc++];
       if (!executeBranch()) {
@@ -1001,7 +1024,7 @@ void CPU::doCycle() {
       } else {
         state = States::Read;
       }
-      return;
+      break;
     case States::ZeroX:
       addr = memory[pc++];
       state = States::ZeroXY;
@@ -1021,11 +1044,11 @@ void CPU::doCycle() {
       } else {
         state = States::Read;
       }
-      return;
+      break;
     case States::Abs1:
       addr = memory[pc++];
       state = States::Abs2;
-      return;
+      break;
     case States::Abs2:
       addr |= static_cast<uint16_t>(memory[pc++]) << 8;
       if (op == Operation::JMP) {
@@ -1038,7 +1061,7 @@ void CPU::doCycle() {
       } else {
         state = States::Read;
       }
-      return;
+      break;
     case States::RMWStall1:
       value = memory[addr];
       state = States::RMWStall2;
@@ -1086,19 +1109,20 @@ void CPU::doCycle() {
       }
       break;
     case States::Indexed1:
-      addr = memory[pc++];
+      value = memory[pc++];
       state = States::Indexed2;
       break;
     case States::Indexed2:
-      addr = (memory[addr] + rx) & 0xFF;  // Only do zero page operations
+      (void)memory[value];
+      value = rx;
       state = States::Indexed3;
       break;
     case States::Indexed3:
-      value = memory[addr];  // Value is address Low
+      addr = memory[value];  // Value is address Low
       state = States::Indexed4;
       break;
     case States::Indexed4:
-      addr = (static_cast<uint16_t>(memory[addr + 1]) << 8) | value;
+      addr |= (static_cast<uint16_t>(memory[(value + 1) & 0xFF]) << 8);
       if (op == Operation::STA) {
         state = States::Execute1;
       } else {
@@ -1157,9 +1181,13 @@ void CPU::doCycle() {
     case States::Execute5:
     case States::Execute6:
       executeInstruction();
-      return;
+      break;
     default:
-      throw NotImplemented();
+      error("Invalid State");
+  }
+
+  if (state == States::Fetch) {
+    debugInfo += "CYC:" + std::to_string(cycle);
   }
 }
 
@@ -1617,6 +1645,1046 @@ void CPU::BRK() {
     default:
       error("Invalid BRK stage");
   }
+}
+
+#pragma endregion
+
+// Debug information
+#pragma region Debug
+
+std::unordered_map<Operation, std::string> CPU::opMap = {
+    {Operation::ADC, "ADC"}, {Operation::AND, "AND"}, {Operation::ASL, "ASL"},
+    {Operation::BCC, "BCC"}, {Operation::BCS, "BCS"}, {Operation::BEQ, "BEQ"},
+    {Operation::BIT, "BIT"}, {Operation::BMI, "BMI"}, {Operation::BNE, "BNE"},
+    {Operation::BPL, "BPL"}, {Operation::BRK, "BRK"}, {Operation::BVC, "BVC"},
+    {Operation::BVS, "BVS"}, {Operation::CLC, "CLC"}, {Operation::CLD, "CLD"},
+    {Operation::CLI, "CLI"}, {Operation::CLV, "CLV"}, {Operation::CMP, "CMP"},
+    {Operation::CPX, "CPX"}, {Operation::CPY, "CPY"}, {Operation::DEC, "DEC"},
+    {Operation::DEX, "DEX"}, {Operation::DEY, "DEY"}, {Operation::EOR, "EOR"},
+    {Operation::INC, "INC"}, {Operation::INX, "INX"}, {Operation::INY, "INY"},
+    {Operation::JMP, "JMP"}, {Operation::JSR, "JSR"}, {Operation::LDA, "LDA"},
+    {Operation::LDX, "LDX"}, {Operation::LDY, "LDY"}, {Operation::LSR, "LSR"},
+    {Operation::NOP, "NOP"}, {Operation::ORA, "ORA"}, {Operation::PHA, "PHA"},
+    {Operation::PHP, "PHP"}, {Operation::PLA, "PLA"}, {Operation::PLP, "PLP"},
+    {Operation::ROL, "ROL"}, {Operation::ROR, "ROR"}, {Operation::RTI, "RTI"},
+    {Operation::RTS, "RTS"}, {Operation::SBC, "SBC"}, {Operation::SEC, "SEC"},
+    {Operation::SED, "SED"}, {Operation::SEI, "SEI"}, {Operation::STA, "STA"},
+    {Operation::STX, "STX"}, {Operation::STY, "STY"}, {Operation::TAX, "TAX"},
+    {Operation::TAY, "TAY"}, {Operation::TSX, "TSX"}, {Operation::TXA, "TXA"},
+    {Operation::TXS, "TXS"}, {Operation::TYA, "TYA"}};
+std::unordered_map<States, std::string> CPU::stateMap = {
+    {States::Fetch, "Fetch"},
+    {States::Abs1, "Abs1"},
+    {States::Abs2, "Abs2"},
+    {States::AbsX, "AbsX"},
+    {States::AbsY, "AbsY"},
+    {States::AbsXY, "AbsXY"},
+    {States::AbsFix, "AbsFix"},
+    {States::Zero, "Zero"},
+    {States::ZeroX, "ZeroX"},
+    {States::ZeroY, "ZeroY"},
+    {States::ZeroXY, "ZeroXY"},
+    {States::Indexed1, "Indexed1"},
+    {States::Indexed2, "Indexed2"},
+    {States::Indexed3, "Indexed3"},
+    {States::Indexed4, "Indexed4"},
+    {States::IndirectIndexed1, "IndirectIndexed1"},
+    {States::IndirectIndexed2, "IndirectIndexed2"},
+    {States::IndirectIndexed3, "IndirectIndexed3"},
+    {States::IndirectIndexedFix, "IndirectIndexedFix"},
+    {States::Indirect1, "Indirect1"},
+    {States::Indirect2, "Indirect2"},
+    {States::Indirect3, "Indirect3"},
+    {States::Indirect4, "Indirect4"},
+    {States::RMWStall1, "RMWStall1"},
+    {States::RMWStall2, "RMWStall2"},
+    {States::Accumulator, "Accumulator"},
+    {States::Immediate, "Immediate"},
+    {States::Branch, "Branch"},
+    {States::Read, "Read"},
+    {States::Execute1, "Execute1"},
+    {States::Execute2, "Execute2"},
+    {States::Execute3, "Execute3"},
+    {States::Execute4, "Execute4"},
+    {States::Execute5, "Execute5"},
+    {States::Execute6, "Execute6"}};
+
+void CPU::dbgImp(const std::string opStr) { debugInfo += "       " + opStr; }
+void CPU::dbgZP(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string zp = to_hex(memory[memory[pc + 1]]);
+  debugInfo += b1 + "     " + opStr + " $" + b1 + " = " + zp;
+}
+void CPU::dbgZPX(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  uint8_t addr = memory[pc + 1] + rx;
+  std::string zp = to_hex(memory[addr]);
+  debugInfo +=
+      b1 + "     " + opStr + " $" + b1 + ",X @ " + to_hex(addr) + " = " + zp;
+}
+void CPU::dbgZPY(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  uint8_t addr = memory[pc + 1] + ry;
+  std::string zp = to_hex(memory[addr]);
+  debugInfo +=
+      b1 + "     " + opStr + " $" + b1 + ",Y @ " + to_hex(addr) + " = " + zp;
+}
+void CPU::dbgImm(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  debugInfo += b1 + "     ORA #$" + b1;
+}
+void CPU::dbgAcc(const std::string opStr) {
+  debugInfo += "       " + opStr + " A";
+}
+void CPU::dbgAbs(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b2 = to_hex(memory[pc + 2]);
+  uint16_t addr =
+      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+  debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + " = " +
+               to_hex(memory[addr]);
+}
+void CPU::dbgAbsY(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b2 = to_hex(memory[pc + 2]);
+  uint16_t addr1 =
+      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+  uint16_t addr2 = addr1 + ry;
+  debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + ",Y @ " +
+               to_hex(addr2) + " = " + to_hex(memory[addr2]);
+}
+void CPU::dbgAbsX(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b2 = to_hex(memory[pc + 2]);
+  uint16_t addr1 =
+      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+  uint16_t addr2 = addr1 + rx;
+  debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + ",X @ " +
+               to_hex(addr2) + " = " + to_hex(memory[addr2]);
+}
+void CPU::dbgBr(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string offset = to_hex(pc + static_cast<int8_t>(memory[pc + 1]));
+  debugInfo += b1 + "     " + opStr + " $" + offset;
+}
+void CPU::dbgXInd(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  uint8_t addr1 = memory[pc + 1] + rx;
+  uint16_t addr2 = (memory[addr1 + 1] << 8) | memory[addr1];
+  std::string b2 = to_hex(memory[addr2]);
+
+  debugInfo += b1 + "     " + opStr + " ($" + b1 + ",X) @ " + to_hex(addr1) +
+               " = " + to_hex(addr2) + " = " + b2;
+}
+void CPU::dbgYInd(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  uint8_t addr1 = memory[pc + 1];
+  uint16_t addr2 = (memory[addr1 + 1] << 8) | memory[addr1];
+  uint16_t addr3 = addr2 + ry;
+  std::string b2 = to_hex(memory[addr3]);
+
+  debugInfo += b1 + "     " + opStr + " ($" + b1 + "),Y = " + to_hex(addr2) +
+               " @ " + to_hex(addr3) + " = " + b2;
+}
+void CPU::dbgInd(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b2 = to_hex(memory[pc + 2]);
+  uint16_t addr = (memory[pc + 2] << 8) | memory[pc + 1];
+  std::string b3 = to_hex(memory[addr]);
+  std::string b4 = to_hex(memory[addr + 1]);
+
+  debugInfo += b1 + b2 + "  " + opStr + " ($" + b2 + b1 + ") = " + b4 + b3;
+}
+
+void CPU::addDebugInfo() {
+  debugInfo = to_hex(pc) + "  " + to_hex(memory[pc]) + " ";
+  switch (memory[pc]) {
+    case 0x0:
+      dbgImp("BRK");
+      break;
+    case 0x1:
+      dbgXInd("ORA");
+      break;
+    case 0x2:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x4:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x5:
+      dbgZP("ORA");
+      break;
+    case 0x6:
+      dbgZP("ASL");
+      break;
+    case 0x7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x8:
+      dbgImp("PHP");
+      break;
+    case 0x9:
+      dbgImm("ORA");
+      break;
+    case 0xa:
+      dbgAcc("ASL");
+      break;
+    case 0xb:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xc:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xd:
+      dbgAbs("ORA");
+      break;
+    case 0xe:
+      dbgAbs("ASL");
+      break;
+    case 0xf:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x10:
+      dbgBr("BPL");
+      break;
+    case 0x11:
+      dbgYInd("ORA");
+      break;
+    case 0x12:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x13:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x14:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x15:
+      dbgZPX("ORA");
+      break;
+    case 0x16:
+      dbgZPX("ASL");
+      break;
+    case 0x17:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x18:
+      dbgImp("CLC");
+      break;
+    case 0x19:
+      dbgAbsY("ORA");
+      break;
+    case 0x1a:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x1b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x1c:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x1d:
+      dbgAbsX("ORA");
+      break;
+    case 0x1e:
+      dbgAbsX("ASL");
+      break;
+    case 0x1f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x20:
+      dbgAbs("JSR");
+      break;
+    case 0x21:
+      dbgXInd("AND");
+      break;
+    case 0x22:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x23:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x24:
+      dbgZP("BIT");
+      break;
+    case 0x25:
+      dbgZP("AND");
+      break;
+    case 0x26:
+      dbgZP("ROL");
+      break;
+    case 0x27:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x28:
+      dbgImp("PLP");
+      break;
+    case 0x29:
+      dbgImm("AND");
+      break;
+    case 0x2a:
+      dbgAcc("ROL");
+      break;
+    case 0x2b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x2c:
+      dbgAbs("BIT");
+      break;
+    case 0x2d:
+      dbgAbs("AND");
+      break;
+    case 0x2e:
+      dbgAbs("ROL");
+      break;
+    case 0x2f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x30:
+      dbgBr("BMI");
+      break;
+    case 0x31:
+      dbgYInd("AND");
+      break;
+    case 0x32:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x33:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x34:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x35:
+      dbgZPX("AND");
+      break;
+    case 0x36:
+      dbgZPX("ROL");
+      break;
+    case 0x37:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x38:
+      dbgImp("SEC");
+      break;
+    case 0x39:
+      dbgAbsY("AND");
+      break;
+    case 0x3a:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x3b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x3c:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x3d:
+      dbgAbsX("AND");
+      break;
+    case 0x3e:
+      dbgAbsX("ROL");
+      break;
+    case 0x3f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x40:
+      dbgImp("RTI");
+      break;
+    case 0x41:
+      dbgXInd("EOR");
+      break;
+    case 0x42:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x43:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x44:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x45:
+      dbgZP("EOR");
+      break;
+    case 0x46:
+      dbgZP("LSR");
+      break;
+    case 0x47:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x48:
+      dbgImp("PHA");
+      break;
+    case 0x49:
+      dbgImm("EOR");
+      break;
+    case 0x4a:
+      dbgAcc("LSR");
+      break;
+    case 0x4b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x4c:
+      dbgAbs("JMP");
+      break;
+    case 0x4d:
+      dbgAbs("EOR");
+      break;
+    case 0x4e:
+      dbgAbs("LSR");
+      break;
+    case 0x4f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x50:
+      dbgBr("BVC");
+      break;
+    case 0x51:
+      dbgYInd("EOR");
+      break;
+    case 0x52:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x53:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x54:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x55:
+      dbgZPX("EOR");
+      break;
+    case 0x56:
+      dbgZPX("LSR");
+      break;
+    case 0x57:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x58:
+      dbgImp("CLI");
+      break;
+    case 0x59:
+      dbgAbsY("EOR");
+      break;
+    case 0x5a:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x5b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x5c:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x5d:
+      dbgAbsX("EOR");
+      break;
+    case 0x5e:
+      dbgAbsX("LSR");
+      break;
+    case 0x5f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x60:
+      dbgImp("RTS");
+      break;
+    case 0x61:
+      dbgXInd("ADC");
+      break;
+    case 0x62:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x63:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x64:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x65:
+      dbgZP("ADC");
+      break;
+    case 0x66:
+      dbgZP("ROR");
+      break;
+    case 0x67:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x68:
+      dbgImp("PLA");
+      break;
+    case 0x69:
+      dbgImm("ADC");
+      break;
+    case 0x6a:
+      dbgAcc("ROR");
+      break;
+    case 0x6b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x6c:
+      dbgInd("JMP");
+      break;
+    case 0x6d:
+      dbgAbs("ADC");
+      break;
+    case 0x6e:
+      dbgAbs("ROR");
+      break;
+    case 0x6f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x70:
+      dbgBr("BVS");
+      break;
+    case 0x71:
+      dbgYInd("ADC");
+      break;
+    case 0x72:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x73:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x74:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x75:
+      dbgZPX("ADC");
+      break;
+    case 0x76:
+      dbgZPX("ROR");
+      break;
+    case 0x77:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x78:
+      dbgImp("SEI");
+      break;
+    case 0x79:
+      dbgAbsY("ADC");
+      break;
+    case 0x7a:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x7b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x7c:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x7d:
+      dbgAbsX("ADC");
+      break;
+    case 0x7e:
+      dbgAbsX("ROR");
+      break;
+    case 0x7f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x80:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x81:
+      dbgXInd("STA");
+      break;
+    case 0x82:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x83:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x84:
+      dbgZP("STY");
+      break;
+    case 0x85:
+      dbgZP("STA");
+      break;
+    case 0x86:
+      dbgZP("STX");
+      break;
+    case 0x87:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x88:
+      dbgImp("DEY");
+      break;
+    case 0x89:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x8a:
+      dbgImp("TXA");
+      break;
+    case 0x8b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x8c:
+      dbgAbs("STY");
+      break;
+    case 0x8d:
+      dbgAbs("STA");
+      break;
+    case 0x8e:
+      dbgAbs("STX");
+      break;
+    case 0x8f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x90:
+      dbgBr("BCC");
+      break;
+    case 0x91:
+      dbgYInd("STA");
+      break;
+    case 0x92:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x93:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x94:
+      dbgZPX("STY");
+      break;
+    case 0x95:
+      dbgZPX("STA");
+      break;
+    case 0x96:
+      dbgZPY("STX");
+      break;
+    case 0x97:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x98:
+      dbgImp("TYA");
+      break;
+    case 0x99:
+      dbgAbsY("STA");
+      break;
+    case 0x9a:
+      dbgImp("TXS");
+      break;
+    case 0x9b:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x9c:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x9d:
+      dbgAbsX("STA");
+      break;
+    case 0x9e:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0x9f:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xa0:
+      dbgImm("LDY");
+      break;
+    case 0xa1:
+      dbgXInd("LDA");
+      break;
+    case 0xa2:
+      dbgImm("LDX");
+      break;
+    case 0xa3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xa4:
+      dbgZP("LDY");
+      break;
+    case 0xa5:
+      dbgZP("LDA");
+      break;
+    case 0xa6:
+      dbgZP("LDX");
+      break;
+    case 0xa7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xa8:
+      dbgImp("TAY");
+      break;
+    case 0xa9:
+      dbgImm("LDA");
+      break;
+    case 0xaa:
+      dbgImp("TAX");
+      break;
+    case 0xab:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xac:
+      dbgAbs("LDY");
+      break;
+    case 0xad:
+      dbgAbs("LDA");
+      break;
+    case 0xae:
+      dbgAbs("LDX");
+      break;
+    case 0xaf:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xb0:
+      dbgBr("BCS");
+      break;
+    case 0xb1:
+      dbgYInd("LDA");
+      break;
+    case 0xb2:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xb3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xb4:
+      dbgZPX("LDY");
+      break;
+    case 0xb5:
+      dbgZPX("LDA");
+      break;
+    case 0xb6:
+      dbgZPY("LDX");
+      break;
+    case 0xb7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xb8:
+      dbgImp("CLV");
+      break;
+    case 0xb9:
+      dbgAbsY("LDA");
+      break;
+    case 0xba:
+      dbgImp("TSX");
+      break;
+    case 0xbb:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xbc:
+      dbgAbsX("LDY");
+      break;
+    case 0xbd:
+      dbgAbsX("LDA");
+      break;
+    case 0xbe:
+      dbgAbsY("LDX");
+      break;
+    case 0xbf:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xc0:
+      dbgImm("CPY");
+      break;
+    case 0xc1:
+      dbgXInd("CMP");
+      break;
+    case 0xc2:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xc3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xc4:
+      dbgZP("CPY");
+      break;
+    case 0xc5:
+      dbgZP("CMP");
+      break;
+    case 0xc6:
+      dbgZP("DEC");
+      break;
+    case 0xc7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xc8:
+      dbgImp("INY");
+      break;
+    case 0xc9:
+      dbgImm("CMP");
+      break;
+    case 0xca:
+      dbgImp("DEX");
+      break;
+    case 0xcb:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xcc:
+      dbgAbs("CPY");
+      break;
+    case 0xcd:
+      dbgAbs("CMP");
+      break;
+    case 0xce:
+      dbgAbs("DEC");
+      break;
+    case 0xcf:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xd0:
+      dbgBr("BNE");
+      break;
+    case 0xd1:
+      dbgYInd("CMP");
+      break;
+    case 0xd2:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xd3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xd4:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xd5:
+      dbgZPX("CMP");
+      break;
+    case 0xd6:
+      dbgZPX("DEC");
+      break;
+    case 0xd7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xd8:
+      dbgImp("CLD");
+      break;
+    case 0xd9:
+      dbgAbsY("CMP");
+      break;
+    case 0xda:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xdb:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xdc:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xdd:
+      dbgAbsX("CMP");
+      break;
+    case 0xde:
+      dbgAbsX("DEC");
+      break;
+    case 0xdf:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xe0:
+      dbgImm("CPX");
+      break;
+    case 0xe1:
+      dbgXInd("SBC");
+      break;
+    case 0xe2:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xe3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xe4:
+      dbgZP("CPX");
+      break;
+    case 0xe5:
+      dbgZP("SBC");
+      break;
+    case 0xe6:
+      dbgZP("INC");
+      break;
+    case 0xe7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xe8:
+      dbgImp("INX");
+      break;
+    case 0xe9:
+      dbgImm("SBC");
+      break;
+    case 0xea:
+      dbgImp("NOP");
+      break;
+    case 0xeb:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xec:
+      dbgAbs("CPX");
+      break;
+    case 0xed:
+      dbgAbs("SBC");
+      break;
+    case 0xee:
+      dbgAbs("INC");
+      break;
+    case 0xef:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xf0:
+      dbgBr("BEQ");
+      break;
+    case 0xf1:
+      dbgYInd("SBC");
+      break;
+    case 0xf2:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xf3:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xf4:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xf5:
+      dbgZPX("SBC");
+      break;
+    case 0xf6:
+      dbgZPX("INC");
+      break;
+    case 0xf7:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xf8:
+      dbgImp("SED");
+      break;
+    case 0xf9:
+      dbgAbsY("SBC");
+      break;
+    case 0xfa:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xfb:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xfc:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+    case 0xfd:
+      dbgAbsX("SBC");
+      break;
+    case 0xfe:
+      dbgAbsX("INC");
+      break;
+    case 0xff:
+      // TODO Illegal instructions
+      debugInfo += "Illegal";
+      break;
+  }
+
+  int length = 48;
+  while (debugInfo.length() < length) {
+    debugInfo += ' ';
+  }
+
+  debugInfo += "A:" + to_hex(ra) + " ";
+  debugInfo += "X:" + to_hex(rx) + " ";
+  debugInfo += "Y:" + to_hex(ry) + " ";
+  debugInfo += "P:" + to_hex(getStatus()) + " ";
+  debugInfo += "SP:" + to_hex(sp) + " ";
+  debugInfo += "PPU:  0,  0 ";  // TODO PPU debug info
 }
 
 #pragma endregion

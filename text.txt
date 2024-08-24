@@ -1,0 +1,873 @@
+case 0x0:
+	 dbgImp("BRK") ;
+	break;
+case 0x1:
+	 dbgXInd("ORA") ;
+	break;
+case 0x2:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x4:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x5:
+	 dbgZP("ORA") ;
+	break;
+case 0x6:
+	 dbgZP("ASL") ;
+	break;
+case 0x7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x8:
+	 dbgImp("PHP") ;
+	break;
+case 0x9:
+	 dbgImm("ORA") ;
+	break;
+case 0xa:
+	 dbgAcc("ASL") ;
+	break;
+case 0xb:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xc:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xd:
+	 dbgAbs("ORA") ;
+	break;
+case 0xe:
+	 dbgAbs("ASL") ;
+	break;
+case 0xf:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x10:
+	 dbgBr("BPL") ;
+	break;
+case 0x11:
+	 dbgYInd("ORA") ;
+	break;
+case 0x12:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x13:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x14:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x15:
+	 dbgZPX("ORA") ;
+	break;
+case 0x16:
+	 dbgZPX("ASL") ;
+	break;
+case 0x17:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x18:
+	 dbgImp("CLC") ;
+	break;
+case 0x19:
+	 dbgAbsY("ORA") ;
+	break;
+case 0x1a:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x1b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x1c:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x1d:
+	 dbgAbsX("ORA") ;
+	break;
+case 0x1e:
+	 dbgAbsX("ASL") ;
+	break;
+case 0x1f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x20:
+	 dbgAbs("JSR") ;
+	break;
+case 0x21:
+	 dbgXInd("AND") ;
+	break;
+case 0x22:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x23:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x24:
+	 dbgZP("BIT") ;
+	break;
+case 0x25:
+	 dbgZP("AND") ;
+	break;
+case 0x26:
+	 dbgZP("ROL") ;
+	break;
+case 0x27:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x28:
+	 dbgImp("PLP") ;
+	break;
+case 0x29:
+	 dbgImm("AND") ;
+	break;
+case 0x2a:
+	 dbgAcc("ROL") ;
+	break;
+case 0x2b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x2c:
+	 dbgAbs("BIT") ;
+	break;
+case 0x2d:
+	 dbgAbs("AND") ;
+	break;
+case 0x2e:
+	 dbgAbs("ROL") ;
+	break;
+case 0x2f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x30:
+	 dbgBr("BMI") ;
+	break;
+case 0x31:
+	 dbgYInd("AND") ;
+	break;
+case 0x32:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x33:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x34:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x35:
+	 dbgZPX("AND") ;
+	break;
+case 0x36:
+	 dbgZPX("ROL") ;
+	break;
+case 0x37:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x38:
+	 dbgImp("SEC") ;
+	break;
+case 0x39:
+	 dbgAbsY("AND") ;
+	break;
+case 0x3a:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x3b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x3c:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x3d:
+	 dbgAbsX("AND") ;
+	break;
+case 0x3e:
+	 dbgAbsX("ROL") ;
+	break;
+case 0x3f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x40:
+	 dbgImp("RTI") ;
+	break;
+case 0x41:
+	 dbgXInd("EOR") ;
+	break;
+case 0x42:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x43:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x44:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x45:
+	 dbgZP("EOR") ;
+	break;
+case 0x46:
+	 dbgZP("LSR") ;
+	break;
+case 0x47:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x48:
+	 dbgImp("PHA") ;
+	break;
+case 0x49:
+	 dbgImm("EOR") ;
+	break;
+case 0x4a:
+	 dbgAcc("LSR") ;
+	break;
+case 0x4b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x4c:
+	 dbgAbs("JMP") ;
+	break;
+case 0x4d:
+	 dbgAbs("EOR") ;
+	break;
+case 0x4e:
+	 dbgAbs("LSR") ;
+	break;
+case 0x4f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x50:
+	 dbgBr("BVC") ;
+	break;
+case 0x51:
+	 dbgYInd("EOR") ;
+	break;
+case 0x52:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x53:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x54:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x55:
+	 dbgZPX("EOR") ;
+	break;
+case 0x56:
+	 dbgZPX("LSR") ;
+	break;
+case 0x57:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x58:
+	 dbgImp("CLI") ;
+	break;
+case 0x59:
+	 dbgAbsY("EOR") ;
+	break;
+case 0x5a:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x5b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x5c:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x5d:
+	 dbgAbsX("EOR") ;
+	break;
+case 0x5e:
+	 dbgAbsX("LSR") ;
+	break;
+case 0x5f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x60:
+	 dbgImp("RTS") ;
+	break;
+case 0x61:
+	 dbgXInd("ADC") ;
+	break;
+case 0x62:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x63:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x64:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x65:
+	 dbgZP("ADC") ;
+	break;
+case 0x66:
+	 dbgZP("ROR") ;
+	break;
+case 0x67:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x68:
+	 dbgImp("PLA") ;
+	break;
+case 0x69:
+	 dbgImm("ADC") ;
+	break;
+case 0x6a:
+	 dbgAcc("ROR") ;
+	break;
+case 0x6b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x6c:
+	 dbgInd("JMP") ;
+	break;
+case 0x6d:
+	 dbgAbs("ADC") ;
+	break;
+case 0x6e:
+	 dbgAbs("ROR") ;
+	break;
+case 0x6f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x70:
+	 dbgBr("BVS") ;
+	break;
+case 0x71:
+	 dbgYInd("ADC") ;
+	break;
+case 0x72:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x73:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x74:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x75:
+	 dbgZPX("ADC") ;
+	break;
+case 0x76:
+	 dbgZPX("ROR") ;
+	break;
+case 0x77:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x78:
+	 dbgImp("SEI") ;
+	break;
+case 0x79:
+	 dbgAbsY("ADC") ;
+	break;
+case 0x7a:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x7b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x7c:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x7d:
+	 dbgAbsX("ADC") ;
+	break;
+case 0x7e:
+	 dbgAbsX("ROR") ;
+	break;
+case 0x7f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x80:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x81:
+	 dbgXInd("STA") ;
+	break;
+case 0x82:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x83:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x84:
+	 dbgZP("STY") ;
+	break;
+case 0x85:
+	 dbgZP("STA") ;
+	break;
+case 0x86:
+	 dbgZP("STX") ;
+	break;
+case 0x87:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x88:
+	 dbgImp("DEY") ;
+	break;
+case 0x89:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x8a:
+	 dbgImp("TXA") ;
+	break;
+case 0x8b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x8c:
+	 dbgAbs("STY") ;
+	break;
+case 0x8d:
+	 dbgAbs("STA") ;
+	break;
+case 0x8e:
+	 dbgAbs("STX") ;
+	break;
+case 0x8f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x90:
+	 dbgBr("BCC") ;
+	break;
+case 0x91:
+	 dbgYInd("STA") ;
+	break;
+case 0x92:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x93:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x94:
+	 dbgZPX("STY") ;
+	break;
+case 0x95:
+	 dbgZPX("STA") ;
+	break;
+case 0x96:
+	 dbgZPY("STX") ;
+	break;
+case 0x97:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x98:
+	 dbgImp("TYA") ;
+	break;
+case 0x99:
+	 dbgAbsY("STA") ;
+	break;
+case 0x9a:
+	 dbgImp("TXS") ;
+	break;
+case 0x9b:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x9c:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x9d:
+	 dbgAbsX("STA") ;
+	break;
+case 0x9e:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0x9f:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xa0:
+	 dbgImm("LDY") ;
+	break;
+case 0xa1:
+	 dbgXInd("LDA") ;
+	break;
+case 0xa2:
+	 dbgImm("LDX") ;
+	break;
+case 0xa3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xa4:
+	 dbgZP("LDY") ;
+	break;
+case 0xa5:
+	 dbgZP("LDA") ;
+	break;
+case 0xa6:
+	 dbgZP("LDX") ;
+	break;
+case 0xa7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xa8:
+	 dbgImp("TAY") ;
+	break;
+case 0xa9:
+	 dbgImm("LDA") ;
+	break;
+case 0xaa:
+	 dbgImp("TAX") ;
+	break;
+case 0xab:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xac:
+	 dbgAbs("LDY") ;
+	break;
+case 0xad:
+	 dbgAbs("LDA") ;
+	break;
+case 0xae:
+	 dbgAbs("LDX") ;
+	break;
+case 0xaf:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xb0:
+	 dbgBr("BCS") ;
+	break;
+case 0xb1:
+	 dbgYInd("LDA") ;
+	break;
+case 0xb2:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xb3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xb4:
+	 dbgZPX("LDY") ;
+	break;
+case 0xb5:
+	 dbgZPX("LDA") ;
+	break;
+case 0xb6:
+	 dbgZPY("LDX") ;
+	break;
+case 0xb7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xb8:
+	 dbgImp("CLV") ;
+	break;
+case 0xb9:
+	 dbgAbsY("LDA") ;
+	break;
+case 0xba:
+	 dbgImp("TSX") ;
+	break;
+case 0xbb:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xbc:
+	 dbgAbsX("LDY") ;
+	break;
+case 0xbd:
+	 dbgAbsX("LDA") ;
+	break;
+case 0xbe:
+	 dbgAbsY("LDX") ;
+	break;
+case 0xbf:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xc0:
+	 dbgImm("CPY") ;
+	break;
+case 0xc1:
+	 dbgXInd("CMP") ;
+	break;
+case 0xc2:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xc3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xc4:
+	 dbgZP("CPY") ;
+	break;
+case 0xc5:
+	 dbgZP("CMP") ;
+	break;
+case 0xc6:
+	 dbgZP("DEC") ;
+	break;
+case 0xc7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xc8:
+	 dbgImp("INY") ;
+	break;
+case 0xc9:
+	 dbgImm("CMP") ;
+	break;
+case 0xca:
+	 dbgImp("DEX") ;
+	break;
+case 0xcb:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xcc:
+	 dbgAbs("CPY") ;
+	break;
+case 0xcd:
+	 dbgAbs("CMP") ;
+	break;
+case 0xce:
+	 dbgAbs("DEC") ;
+	break;
+case 0xcf:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xd0:
+	 dbgBr("BNE") ;
+	break;
+case 0xd1:
+	 dbgYInd("CMP") ;
+	break;
+case 0xd2:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xd3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xd4:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xd5:
+	 dbgZPX("CMP") ;
+	break;
+case 0xd6:
+	 dbgZPX("DEC") ;
+	break;
+case 0xd7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xd8:
+	 dbgImp("CLD") ;
+	break;
+case 0xd9:
+	 dbgAbsY("CMP") ;
+	break;
+case 0xda:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xdb:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xdc:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xdd:
+	 dbgAbsX("CMP") ;
+	break;
+case 0xde:
+	 dbgAbsX("DEC") ;
+	break;
+case 0xdf:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xe0:
+	 dbgImm("CPX") ;
+	break;
+case 0xe1:
+	 dbgXInd("SBC") ;
+	break;
+case 0xe2:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xe3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xe4:
+	 dbgZP("CPX") ;
+	break;
+case 0xe5:
+	 dbgZP("SBC") ;
+	break;
+case 0xe6:
+	 dbgZP("INC") ;
+	break;
+case 0xe7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xe8:
+	 dbgImp("INX") ;
+	break;
+case 0xe9:
+	 dbgImm("SBC") ;
+	break;
+case 0xea:
+	 dbgImp("NOP") ;
+	break;
+case 0xeb:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xec:
+	 dbgAbs("CPX") ;
+	break;
+case 0xed:
+	 dbgAbs("SBC") ;
+	break;
+case 0xee:
+	 dbgAbs("INC") ;
+	break;
+case 0xef:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xf0:
+	 dbgBr("BEQ") ;
+	break;
+case 0xf1:
+	 dbgYInd("SBC") ;
+	break;
+case 0xf2:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xf3:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xf4:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xf5:
+	 dbgZPX("SBC") ;
+	break;
+case 0xf6:
+	 dbgZPX("INC") ;
+	break;
+case 0xf7:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xf8:
+	 dbgImp("SED") ;
+	break;
+case 0xf9:
+	 dbgAbsY("SBC") ;
+	break;
+case 0xfa:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xfb:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xfc:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;
+case 0xfd:
+	 dbgAbsX("SBC") ;
+	break;
+case 0xfe:
+	 dbgAbsX("INC") ;
+	break;
+case 0xff:
+	 // TODO Illegal instructions
+	debugInfo += "Illegal" ;
+	break;

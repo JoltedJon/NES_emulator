@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 
 enum class Operation {
   ADC,
@@ -61,34 +63,6 @@ enum class Operation {
   TYA
 };
 
-struct StatusFlags {
-  bool carry : 1;
-  bool zero : 1;
-  bool irqDisable : 1;
-  bool decimalMode : 1;
-  bool breakFlag : 1;
-  bool __ : 1;  // Unused bit set to true always
-  bool overflow : 1;
-  bool sign : 1;
-
-  StatusFlags()
-      : carry(),
-        zero(),
-        irqDisable(),
-        decimalMode(),
-        breakFlag(),
-        __(true),
-        overflow(),
-        sign() {}
-};
-
-union FlagConversion {
-  StatusFlags f;
-  uint8_t byte;
-
-  FlagConversion() : f() {}
-};
-
 enum class States {
   Fetch,
 
@@ -138,6 +112,34 @@ enum class States {
   Execute6,
 };
 
+struct StatusFlags {
+  bool carry : 1;
+  bool zero : 1;
+  bool irqDisable : 1;
+  bool decimalMode : 1;
+  bool breakFlag : 1;
+  bool __ : 1;  // Unused bit set to true always
+  bool overflow : 1;
+  bool sign : 1;
+
+  StatusFlags()
+      : carry(),
+        zero(),
+        irqDisable(),
+        decimalMode(),
+        breakFlag(),
+        __(true),
+        overflow(),
+        sign() {}
+};
+
+union FlagConversion {
+  StatusFlags f;
+  uint8_t byte;
+
+  FlagConversion() : f() {}
+};
+
 class CPU {
  private:
   // Registers
@@ -148,18 +150,30 @@ class CPU {
   uint8_t sp;   // Stack Pointer
   StatusFlags rf;
 
-  // Instruction i;
   Operation op;
 
   States state;
+  uint64_t cycle;
+
+  std::string debugInfo;
 
   uint16_t addr;  // For any addresses that need to be modified per cycle
   uint8_t value;
 
   char* memory;  // TODO placeholder
 
+  static std::unordered_map<Operation, std::string> opMap;
+  static std::unordered_map<States, std::string> stateMap;
+
+  // Functions
  public:
+  CPU();
+  void reset();
+
   void doCycle();
+
+  // Debug
+  inline void setPC(uint16_t newPC) { pc = newPC; }
 
  private:
   void decode(uint8_t byte);
@@ -262,4 +276,20 @@ class CPU {
   void PLP();
   void RTI();
   void RTS();
+
+  // Debug Information
+  void addDebugInfo();
+  void dbgImp(const std::string opStr);
+  void dbgZP(const std::string opStr);
+  void dbgZPX(const std::string opStr);
+  void dbgZPY(const std::string opStr);
+  void dbgImm(const std::string opStr);
+  void dbgAcc(const std::string opStr);
+  void dbgAbs(const std::string opStr);
+  void dbgAbsY(const std::string opStr);
+  void dbgAbsX(const std::string opStr);
+  void dbgBr(const std::string opStr);
+  void dbgXInd(const std::string opStr);
+  void dbgYInd(const std::string opStr);
+  void dbgInd(const std::string opStr);
 };

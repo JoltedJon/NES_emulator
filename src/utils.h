@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -46,6 +47,9 @@ inline void __error(const char* file, size_t line, const char* message) {
 #define error(message) __error(__FILE__, __LINE__, message)
 
 template <typename First, typename... T>
-bool is_in(First&& first, T&&... t) {
+inline bool is_in(First&& first, T&&... t) {
   return ((first == t) || ...);
 }
+
+template <typename T>
+std::string to_hex(T i);
