@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdlib>
+#include <iomanip>
+#include <ios>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
@@ -39,7 +41,6 @@ inline void __warning(const char* message) {
 inline void __error(const char* file, size_t line, const char* message) {
   std::cerr << "\033[31m" << file << ":" << line << "\t" << message << "\033[0m"
             << std::endl;
-  abort();
 }
 
 #define info(message) __info(message)
@@ -52,4 +53,9 @@ inline bool is_in(First&& first, T&&... t) {
 }
 
 template <typename T>
-std::string to_hex(T i);
+std::string to_hex(T i) {
+  std::stringstream ss;
+  ss << std::setfill('0') << std::setw(sizeof(T) * 2) << std::uppercase
+     << std::hex << static_cast<int>(i);
+  return ss.str();
+}

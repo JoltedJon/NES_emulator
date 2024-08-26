@@ -1,8 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <fstream>
 #include <string>
 #include <unordered_map>
+
+#include "nesMemory.h"
 
 enum class Operation {
   ADC,
@@ -153,27 +156,41 @@ class CPU {
   Operation op;
 
   States state;
-  uint64_t cycle;
-
-  std::string debugInfo;
 
   uint16_t addr;  // For any addresses that need to be modified per cycle
   uint8_t value;
 
-  char* memory;  // TODO placeholder
+  // char* memory;  // TODO placeholder
+  NesMemory& memory;
+
+  // Debug
+  uint64_t cycle;
+  std::string debugInfo;
+  std::ofstream log;
+  bool step;
+  bool printLog;
 
   static std::unordered_map<Operation, std::string> opMap;
   static std::unordered_map<States, std::string> stateMap;
 
   // Functions
  public:
-  CPU();
+  CPU(NesMemory& memory);
   void reset();
 
   void doCycle();
 
   // Debug
   inline void setPC(uint16_t newPC) { pc = newPC; }
+  inline void resetPC() {
+    pc = memory[0xFFFC] | (static_cast<uint16_t>(memory[0xFFFD]) << 8);
+  }
+  inline const uint16_t getPC() const { return pc; }
+  inline void toggleStep() { step = !step; }
+  inline const bool getStep() const { return step; }
+  inline void toggleLog() { printLog = !printLog; }
+  inline const bool getLog() const { return printLog; }
+  inline const uint64_t getCycle() const { return cycle; }
 
  private:
   void decode(uint8_t byte);
@@ -181,10 +198,20 @@ class CPU {
   void pushStack(uint8_t val);
   uint8_t popStack();
 
-  inline uint8_t getStatus() {
+  inline uint8_t getStatus() const {
     FlagConversion fc;
     fc.f = rf;
     return fc.byte;
+  }
+  inline void setStatus(uint8_t byte) {
+    rf.carry = byte & 0x01;
+    rf.zero = byte & 0x02;
+    rf.irqDisable = byte & 0x04;
+    rf.decimalMode = byte & 0x08;
+    rf.breakFlag = false;
+    rf.__ = true;
+    rf.overflow = byte & 0x40;
+    rf.sign = byte & 0x80;
   }
 
   inline void setZero(uint8_t val) { rf.zero = val == 0; }
@@ -237,7 +264,7 @@ class CPU {
 
   // Unconditional Jumps
   void JMP(uint16_t addr);
-  void JSR(uint16_t addr);
+  void JSR();
 
   // Stores
   void STA(uint16_t addr);
@@ -286,6 +313,7 @@ class CPU {
   void dbgImm(const std::string opStr);
   void dbgAcc(const std::string opStr);
   void dbgAbs(const std::string opStr);
+  void dbgMem(const std::string opstr);
   void dbgAbsY(const std::string opStr);
   void dbgAbsX(const std::string opStr);
   void dbgBr(const std::string opStr);

@@ -2,3 +2,8 @@
 builddir/
 roms/
 subprojects/
+
+*.log
+*.in
+*.diff
+*.dump

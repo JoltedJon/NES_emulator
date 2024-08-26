@@ -7,14 +7,25 @@
 #include "utils.h"
 
 // Simulated on power up
-CPU::CPU() : ra(0), rx(0), ry(0), sp(0), rf() { reset(); }
+CPU::CPU(NesMemory& memory)
+    : ra(0),
+      rx(0),
+      ry(0),
+      sp(0),
+      rf(),
+      state(States::Fetch),
+      memory(memory),
+      cycle(7),
+      step(false),
+      printLog(false) {
+  reset();
+}
 
 void CPU::reset() {
   rf.irqDisable = true;
-  // TODO
-
+  sp -= 3;
   // Reset Vector
-  pc = memory[0xFFFC] | (static_cast<uint16_t>(memory[0xFFFD]) << 8);
+  resetPC();
 }
 
 void CPU::decode(uint8_t byte) {
@@ -298,7 +309,7 @@ void CPU::decode(uint8_t byte) {
       break;
     case 0x20:
       op = Operation::JSR;
-      state = States::Abs1;
+      state = States::Execute1;
       break;
     case 0x2E:
       op = Operation::ROL;
@@ -651,11 +662,10 @@ void CPU::decode(uint8_t byte) {
 
     default: {
       std::string message =
-          "Decode Error: PC:" + to_hex(pc) + " = " + to_hex(byte);
-      warning(message.c_str());
-      op = Operation::NOP;
-      state = States::Execute1;
-      break;
+          "Decode Error: PC: " + to_hex(pc) + " = " + to_hex(byte);
+      error(message.c_str());
+      memory.dump();
+      exit(1);
     }
   }
 }
@@ -744,6 +754,8 @@ void CPU::executeImplicit() {
     default:
       error(("Invalid Implicit Operation - PC: " + to_hex(pc) + " " + opMap[op])
                 .c_str());
+      memory.dump();
+      exit(1);
   }
 
   // All non complex implicit instructions will reach here
@@ -770,6 +782,8 @@ void CPU::executeAccumulator() {
       error(("Invalid Accumulator Operation - PC: " + to_hex(pc) + " " +
              opMap[op])
                 .c_str());
+      memory.dump();
+      exit(1);
   }
 
   (void)memory[pc];
@@ -816,6 +830,8 @@ void CPU::executeImmediate() {
       error(
           ("Invalid Immediate Operation - PC: " + to_hex(pc) + " " + opMap[op])
               .c_str());
+      memory.dump();
+      exit(1);
   }
   state = States::Fetch;
 }
@@ -842,6 +858,8 @@ bool CPU::executeBranch() {
       default:
         error(("Invalid Branch Operation - PC: " + to_hex(pc) + " " + opMap[op])
                   .c_str());
+        memory.dump();
+        exit(1);
     }
   }
 
@@ -864,6 +882,8 @@ bool CPU::executeBranch() {
       error(("Invalid Branch Case - PC: " + to_hex(pc) +
              " Cycle: " + std::to_string(cycle))
                 .c_str());
+      memory.dump();
+      exit(1);
   }
 
   return false;
@@ -943,8 +963,8 @@ void CPU::executeInstruction() {
       JMP(addr);
       break;
     case Operation::JSR:
-      JSR(addr);
-      break;
+      JSR();
+      return;
     // Implicit
     case Operation::CLC:
     case Operation::SEC:
@@ -988,15 +1008,23 @@ void CPU::executeInstruction() {
       error(
           ("Invalid Execute Instruction - PC: " + to_hex(pc) + " " + opMap[op])
               .c_str());
+      memory.dump();
+      exit(1);
   }
   state = States::Fetch;
 }
 
 void CPU::doCycle() {
-  ++cycle;
   switch (state) {
     case States::Fetch:
-      addDebugInfo();
+      if (printLog) addDebugInfo();
+      if (step) {
+        std::string message;
+        std::cin >> message;
+        if (std::cin.eof()) exit(0);
+        if (message == "r") step = false;
+      }
+
       decode(memory[pc++]);  // State transition in Decode
       assert(state != States::Fetch);
       break;
@@ -1026,16 +1054,17 @@ void CPU::doCycle() {
       }
       break;
     case States::ZeroX:
-      addr = memory[pc++];
+      (void)memory[pc++];
       state = States::ZeroXY;
       value = rx;
       break;
     case States::ZeroY:
-      addr = memory[pc++];
+      (void)memory[pc++];
       state = States::ZeroXY;
       value = ry;
+      break;
     case States::ZeroXY:
-      addr = (memory[addr] + value) & 0xFF;
+      addr = (memory[pc - 1] + value) & 0xFF;
       if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
                 Operation::ROR, Operation::INC, Operation::DEC)) {
         state = States::RMWStall1;
@@ -1114,7 +1143,7 @@ void CPU::doCycle() {
       break;
     case States::Indexed2:
       (void)memory[value];
-      value = rx;
+      value = (value + rx) & 0xFF;
       state = States::Indexed3;
       break;
     case States::Indexed3:
@@ -1138,7 +1167,7 @@ void CPU::doCycle() {
       state = States::IndirectIndexed3;
       break;
     case States::IndirectIndexed3:
-      addr |= memory[(value + 1) & 0xFF];
+      addr |= static_cast<uint16_t>(memory[(value + 1) & 0xFF]) << 8;
       if (((addr & 0xFF) + ry) > 0xFF || (op == Operation::STA)) {
         state = States::IndirectIndexedFix;
       } else {
@@ -1183,12 +1212,11 @@ void CPU::doCycle() {
       executeInstruction();
       break;
     default:
-      error("Invalid State");
+      error(("Invalid State: " + stateMap[state]).c_str());
+      memory.dump();
+      exit(1);
   }
-
-  if (state == States::Fetch) {
-    debugInfo += "CYC:" + std::to_string(cycle);
-  }
+  ++cycle;
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -1219,7 +1247,7 @@ void CPU::AND(uint8_t val) {
 }
 
 void CPU::BIT(uint8_t val) {
-  rf.zero = ra & val;
+  rf.zero = (ra & val) == 0;
   rf.overflow = val & 0x40;
   setSign(val);
 }
@@ -1266,10 +1294,10 @@ void CPU::ORA(uint8_t val) {
 void CPU::SBC(uint8_t val) {
   uint16_t result = static_cast<uint16_t>(ra) - static_cast<uint16_t>(val) -
                     (1 - static_cast<uint16_t>(rf.carry));
-  uint8_t result_8 = static_cast<uint8_t>(result);
+  uint8_t result_8 = ra - val - (1 - static_cast<uint8_t>(rf.carry));
 
   rf.carry = static_cast<int16_t>(result) >= 0;
-  rf.overflow = ((result_8 ^ ra) & (result_8 ^ val) & 0x80) != 0;
+  rf.overflow = ((result_8 ^ ra) & (result_8 ^ ~val) & 0x80) != 0;
 
   ra = result_8;
   setZero(ra);
@@ -1280,18 +1308,18 @@ void CPU::SBC(uint8_t val) {
 
 uint8_t CPU::ASL(uint8_t val) {
   rf.carry = val & 0x80;
-  setZero(ra);
 
   val *= 2;
+  setZero(val);
   setSign(val);
   return val;
 }
 
 uint8_t CPU::LSR(uint8_t val) {
-  rf.carry = val & 0x80;
-  setZero(ra);
+  rf.carry = val & 0x01;
 
   val >>= 1;
+  setZero(val);
   setSign(val);
   return val;
 }
@@ -1356,12 +1384,10 @@ void CPU::JMP(uint16_t addr) { pc = addr; }
   6    PC     R  copy low address byte to PCL, fetch high address
                   byte to PCH
 */
-void CPU::JSR(uint16_t addr) {
-  static uint16_t newPC = 0;
-
+void CPU::JSR() {
   switch (state) {
     case States::Execute1:
-      newPC = memory[pc++];
+      addr = memory[pc++];
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1377,12 +1403,14 @@ void CPU::JSR(uint16_t addr) {
       state = States::Execute5;
       break;  // Push PC Low
     case States::Execute5:
-      newPC |= memory[pc] << 8;
-      pc = newPC;
+      addr |= static_cast<uint16_t>(memory[pc]) << 8;
+      pc = addr;
       state = States::Fetch;
       return;
     default:
       error("Invalid JSR state");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1463,6 +1491,8 @@ void CPU::PHA() {
       break;
     default:
       error("Invalid PHA stage");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1473,11 +1503,15 @@ void CPU::PHP() {
       state = States::Execute2;
       return;
     case States::Execute2:
+      rf.breakFlag = true;
       pushStack(getStatus());
+      rf.breakFlag = false;
       state = States::Fetch;
       return;
     default:
       error("Invalid PHP stage");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1509,6 +1543,8 @@ void CPU::PLA() {
       return;
     default:
       error("Invalid PLA stage");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1522,15 +1558,14 @@ void CPU::PLP() {
       sp++;
       state = States::Execute3;
       break;
-    case States::Execute3: {
-      FlagConversion fc;
-      fc.byte = popStack();
-      rf = fc.f;
+    case States::Execute3:
+      setStatus(popStack());
       state = States::Fetch;
       return;
-    }
     default:
       error("Invalid PLP stage");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1554,25 +1589,24 @@ void CPU::RTI() {
       sp++;
       state = States::Execute3;
       break;
-    case States::Execute3: {
-      FlagConversion fc;
-      fc.byte = popStack();
-      rf = fc.f;
+    case States::Execute3:
+      setStatus(popStack());
       sp++;
       state = States::Execute4;
       break;
-    }
     case States::Execute4:
       pc = popStack();
       sp++;
       state = States::Execute5;
       break;
     case States::Execute5:
-      pc = static_cast<uint16_t>(popStack()) << 8;
+      pc |= static_cast<uint16_t>(popStack()) << 8;
       state = States::Fetch;
       return;
     default:
       error("Invalid RTI stage");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1592,11 +1626,17 @@ void CPU::RTS() {
       state = States::Execute4;
       break;
     case States::Execute4:
-      pc = static_cast<uint16_t>(popStack()) << 8;
+      pc |= static_cast<uint16_t>(popStack()) << 8;
+      state = States::Execute5;
+      break;
+    case States::Execute5:
+      ++pc;
       state = States::Fetch;
       return;
     default:
       error("Invalid RTS  stage");
+      memory.dump();
+      exit(1);
   }
 }
 
@@ -1644,13 +1684,12 @@ void CPU::BRK() {
     }
     default:
       error("Invalid BRK stage");
+      memory.dump();
+      exit(1);
   }
 }
 
-#pragma endregion
-
 // Debug information
-#pragma region Debug
 
 std::unordered_map<Operation, std::string> CPU::opMap = {
     {Operation::ADC, "ADC"}, {Operation::AND, "AND"}, {Operation::ASL, "ASL"},
@@ -1710,11 +1749,13 @@ std::unordered_map<States, std::string> CPU::stateMap = {
     {States::Execute6, "Execute6"}};
 
 void CPU::dbgImp(const std::string opStr) { debugInfo += "       " + opStr; }
+
 void CPU::dbgZP(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   std::string zp = to_hex(memory[memory[pc + 1]]);
   debugInfo += b1 + "     " + opStr + " $" + b1 + " = " + zp;
 }
+
 void CPU::dbgZPX(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   uint8_t addr = memory[pc + 1] + rx;
@@ -1722,6 +1763,7 @@ void CPU::dbgZPX(const std::string opStr) {
   debugInfo +=
       b1 + "     " + opStr + " $" + b1 + ",X @ " + to_hex(addr) + " = " + zp;
 }
+
 void CPU::dbgZPY(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   uint8_t addr = memory[pc + 1] + ry;
@@ -1729,21 +1771,39 @@ void CPU::dbgZPY(const std::string opStr) {
   debugInfo +=
       b1 + "     " + opStr + " $" + b1 + ",Y @ " + to_hex(addr) + " = " + zp;
 }
+
 void CPU::dbgImm(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
-  debugInfo += b1 + "     ORA #$" + b1;
+  debugInfo += b1 + "     " + opStr + " #$" + b1;
 }
+
 void CPU::dbgAcc(const std::string opStr) {
   debugInfo += "       " + opStr + " A";
 }
+
 void CPU::dbgAbs(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   std::string b2 = to_hex(memory[pc + 2]);
   uint16_t addr =
       (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
-  debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + " = " +
-               to_hex(memory[addr]);
+  debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1;
+
+  if ((opStr == "STX") || (opStr == "STA") || (opStr == "STY") ||
+      (opStr == "LDX") || (opStr == "LDA") || (opStr == "LDY") ||
+      (opStr == "BIT") || (opStr == "ORA")) {
+    debugInfo += " = " + to_hex(memory[addr]);
+  }
 }
+
+void CPU::dbgMem(const std::string opStr) {
+  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b2 = to_hex(memory[pc + 2]);
+  uint16_t addr =
+      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+  debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1;
+  debugInfo += " = " + to_hex(memory[addr]);
+}
+
 void CPU::dbgAbsY(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   std::string b2 = to_hex(memory[pc + 2]);
@@ -1753,6 +1813,7 @@ void CPU::dbgAbsY(const std::string opStr) {
   debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + ",Y @ " +
                to_hex(addr2) + " = " + to_hex(memory[addr2]);
 }
+
 void CPU::dbgAbsX(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   std::string b2 = to_hex(memory[pc + 2]);
@@ -1762,38 +1823,44 @@ void CPU::dbgAbsX(const std::string opStr) {
   debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + ",X @ " +
                to_hex(addr2) + " = " + to_hex(memory[addr2]);
 }
+
 void CPU::dbgBr(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
-  std::string offset = to_hex(pc + static_cast<int8_t>(memory[pc + 1]));
+  std::string offset = to_hex(
+      static_cast<uint16_t>(pc + 2 + static_cast<int8_t>(memory[pc + 1])));
   debugInfo += b1 + "     " + opStr + " $" + offset;
 }
+
 void CPU::dbgXInd(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   uint8_t addr1 = memory[pc + 1] + rx;
-  uint16_t addr2 = (memory[addr1 + 1] << 8) | memory[addr1];
+  uint16_t addr2 = (memory[(addr1 + 1) & 0xFF] << 8) | memory[addr1];
   std::string b2 = to_hex(memory[addr2]);
 
   debugInfo += b1 + "     " + opStr + " ($" + b1 + ",X) @ " + to_hex(addr1) +
                " = " + to_hex(addr2) + " = " + b2;
 }
+
 void CPU::dbgYInd(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   uint8_t addr1 = memory[pc + 1];
-  uint16_t addr2 = (memory[addr1 + 1] << 8) | memory[addr1];
+  uint16_t addr2 = (memory[(addr1 + 1) & 0xFF] << 8) | memory[addr1];
   uint16_t addr3 = addr2 + ry;
   std::string b2 = to_hex(memory[addr3]);
 
   debugInfo += b1 + "     " + opStr + " ($" + b1 + "),Y = " + to_hex(addr2) +
                " @ " + to_hex(addr3) + " = " + b2;
 }
+
 void CPU::dbgInd(const std::string opStr) {
   std::string b1 = to_hex(memory[pc + 1]);
   std::string b2 = to_hex(memory[pc + 2]);
-  uint16_t addr = (memory[pc + 2] << 8) | memory[pc + 1];
+  uint16_t addr = (static_cast<uint16_t>(memory[pc + 2]) << 8) | memory[pc + 1];
   std::string b3 = to_hex(memory[addr]);
-  std::string b4 = to_hex(memory[addr + 1]);
+  std::string b4 = to_hex(memory[(addr & 0xFF00) | ((addr + 1) & 0x00FF)]);
 
-  debugInfo += b1 + b2 + "  " + opStr + " ($" + b2 + b1 + ") = " + b4 + b3;
+  debugInfo +=
+      b1 + " " + b2 + "  " + opStr + " ($" + to_hex(addr) + ") = " + b4 + b3;
 }
 
 void CPU::addDebugInfo() {
@@ -1845,10 +1912,10 @@ void CPU::addDebugInfo() {
       debugInfo += "Illegal";
       break;
     case 0xd:
-      dbgAbs("ORA");
+      dbgMem("ORA");
       break;
     case 0xe:
-      dbgAbs("ASL");
+      dbgMem("ASL");
       break;
     case 0xf:
       // TODO Illegal instructions
@@ -1951,13 +2018,13 @@ void CPU::addDebugInfo() {
       debugInfo += "Illegal";
       break;
     case 0x2c:
-      dbgAbs("BIT");
+      dbgMem("BIT");
       break;
     case 0x2d:
-      dbgAbs("AND");
+      dbgMem("AND");
       break;
     case 0x2e:
-      dbgAbs("ROL");
+      dbgMem("ROL");
       break;
     case 0x2f:
       // TODO Illegal instructions
@@ -2064,10 +2131,10 @@ void CPU::addDebugInfo() {
       dbgAbs("JMP");
       break;
     case 0x4d:
-      dbgAbs("EOR");
+      dbgMem("EOR");
       break;
     case 0x4e:
-      dbgAbs("LSR");
+      dbgMem("LSR");
       break;
     case 0x4f:
       // TODO Illegal instructions
@@ -2174,10 +2241,10 @@ void CPU::addDebugInfo() {
       dbgInd("JMP");
       break;
     case 0x6d:
-      dbgAbs("ADC");
+      dbgMem("ADC");
       break;
     case 0x6e:
-      dbgAbs("ROR");
+      dbgMem("ROR");
       break;
     case 0x6f:
       // TODO Illegal instructions
@@ -2282,13 +2349,13 @@ void CPU::addDebugInfo() {
       debugInfo += "Illegal";
       break;
     case 0x8c:
-      dbgAbs("STY");
+      dbgMem("STY");
       break;
     case 0x8d:
-      dbgAbs("STA");
+      dbgMem("STA");
       break;
     case 0x8e:
-      dbgAbs("STX");
+      dbgMem("STX");
       break;
     case 0x8f:
       // TODO Illegal instructions
@@ -2389,13 +2456,13 @@ void CPU::addDebugInfo() {
       debugInfo += "Illegal";
       break;
     case 0xac:
-      dbgAbs("LDY");
+      dbgMem("LDY");
       break;
     case 0xad:
-      dbgAbs("LDA");
+      dbgMem("LDA");
       break;
     case 0xae:
-      dbgAbs("LDX");
+      dbgMem("LDX");
       break;
     case 0xaf:
       // TODO Illegal instructions
@@ -2495,13 +2562,13 @@ void CPU::addDebugInfo() {
       debugInfo += "Illegal";
       break;
     case 0xcc:
-      dbgAbs("CPY");
+      dbgMem("CPY");
       break;
     case 0xcd:
-      dbgAbs("CMP");
+      dbgMem("CMP");
       break;
     case 0xce:
-      dbgAbs("DEC");
+      dbgMem("DEC");
       break;
     case 0xcf:
       // TODO Illegal instructions
@@ -2604,13 +2671,13 @@ void CPU::addDebugInfo() {
       debugInfo += "Illegal";
       break;
     case 0xec:
-      dbgAbs("CPX");
+      dbgMem("CPX");
       break;
     case 0xed:
-      dbgAbs("SBC");
+      dbgMem("SBC");
       break;
     case 0xee:
-      dbgAbs("INC");
+      dbgMem("INC");
       break;
     case 0xef:
       // TODO Illegal instructions
@@ -2684,7 +2751,11 @@ void CPU::addDebugInfo() {
   debugInfo += "Y:" + to_hex(ry) + " ";
   debugInfo += "P:" + to_hex(getStatus()) + " ";
   debugInfo += "SP:" + to_hex(sp) + " ";
-  debugInfo += "PPU:  0,  0 ";  // TODO PPU debug info
-}
+  // debugInfo += "PPU:  0,  0 ";  // TODO PPU debug info
+  debugInfo += "CYC:" + std::to_string(cycle);
 
-#pragma endregion
+  if (!log.is_open()) {
+    log.open("NES.log");
+  }
+  log << debugInfo << std::endl;
+}
