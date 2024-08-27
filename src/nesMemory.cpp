@@ -1,13 +1,21 @@
 #include "nesMemory.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 #include <vector>
 
 #include "utils.h"
+
+// Set of the currently supported Mappers
+std::unordered_set<uint16_t> NesMemory::supportedMappers = {0x00};
+
+constexpr size_t ROMLOCATION = 0x3FE0;
 
 bool NesMemory::loadRom(const std::string& romPath) {
   NesMemory::romPath = romPath;
@@ -57,57 +65,117 @@ bool NesMemory::loadRom(const std::string& romPath) {
             << std::endl;
   std::cout << "Mapper Number: " << (int)mapper << std::endl << std::endl;
 
-  cpuMemory = std::vector<uint8_t>(0x10000);
-  memcpy(cpuMemory.data() + 0x8000,
-         rom.data() + 16 + (trainerPresent * trainerPresent),
-         program_size * (16384));
-  // dump();
-  // exit(0);
+  if (!supportedMappers.contains(mapper)) {
+    std::cout << "Mapper \"" << (int)mapper << "\" Not yet supported"
+              << std::endl;
+    return false;
+  }
+
+  // Construct Memory
+
+  // TODO implement other Mappers
+  // Currently only loads ROM for 0x00
+
+  memcpy(cpuMemory.data() + ROMLOCATION,
+         rom.data() + 16 + (trainerPresent * 512), program_size * 0x4000);
+
   return true;
 }
 
-// TODO have correct CPU memory map
+// TODO Support different memory maps from different mappers
 uint8_t& NesMemory::operator[](size_t i) {
-  if (i >= 0x0800 && i < 0x2000) {
-    i %= 0x800;
-  } else if (i >= 0x8000) {
-    i -= 0x8000;
-    i %= program_size * 16384;
-    i += 0x8000;
+  if (i < 0x2000) {
+    return internalRam[i % 0x0800];
   }
-  return cpuMemory[i];
+
+  if (i < 0x4000 && i >= 0x2000) {
+    // TODO PPU registers
+    return internalRam[0];
+  }
+
+  if (i < 0x4018 && i >= 0x4000) {
+    return APUIOMemory[i - 0x4000];
+  }
+
+  if (i < 0x4020 && i >= 0x4018) {
+    return APUIOMemory[i - 0x4000];
+  }
+
+  if (i < 0x8000 && i >= 0x4020) {
+    return cpuMemory[i - 0x4020];
+  }
+
+  if (i >= 0x8000) {
+    i = ((i - 0x8000) % (program_size * 0x4000)) + ROMLOCATION;
+    return cpuMemory[i];
+  }
+  error(
+      ("Index: " + std::to_string(i) + " Not Implemented Correctly!").c_str());
+  exit(1);
 }
+
 const uint8_t& NesMemory::operator[](size_t i) const {
-  if (i >= 0x0800 && i < 0x2000) {
-    i %= 0x800;
-  } else if (i >= 0x8000) {
-    i -= 0x8000;
-    i %= program_size * 16384;
-    i += 0x8000;
+  if (i < 0x2000) {
+    return internalRam[i % 0x0800];
   }
-  return cpuMemory[i];
+
+  if (i < 0x4000 && i >= 0x2000) {
+    // TODO PPU registers
+    return internalRam[0];
+  }
+
+  if (i < 0x4018 && i >= 0x4000) {
+    return APUIOMemory[i - 0x4000];
+  }
+
+  if (i < 0x4020 && i >= 0x4018) {
+    return APUIOMemory[i - 0x4000];
+  }
+
+  if (i < 0x8000 && i >= 0x4020) {
+    return cpuMemory[i - 0x4020];
+  }
+
+  if (i >= 0x8000) {
+    i = ((i - 0x8000) % (program_size * 0x4000)) + ROMLOCATION;
+    return cpuMemory[i];
+  }
+  error(
+      ("Index: " + std::to_string(i) + " Not Implemented Correctly!").c_str());
+  exit(1);
 }
 
 void NesMemory::dump() const {
   std::ofstream file("NES.dump");
 
-  bool same = false;
-  std::string previousLine = "";
-  for (size_t pc = 0; pc < cpuMemory.size(); pc += 0x10) {
+  enum DisplayState { Display, Repeat, Skip } ds;
+  ds = Display;
+  for (size_t pc = 0; pc < 0x10000; pc += 0x10) {
+    uint8_t numZeroes = 0;
     std::string line = "";
     for (size_t i = 0; i < 0x10; ++i) {
-      line += to_hex(operator[](pc + i)) + " ";
+      uint8_t val = operator[](pc + i);
+      line += to_hex(val) + " ";
+      if (val == 0x00) {
+        numZeroes++;
+      };
     }
-    if (previousLine == line) {
-      previousLine = line;
-      if (!same) {
+
+    // Skip all zero lines if they're repeated
+    if (numZeroes == 16) {
+      if (ds == Display) {
+        ds = Repeat;
+        goto print;
+      } else if (ds == Repeat) {
+        ds = Skip;
         file << "\n";
-        same = true;
+        continue;
+      } else {
+        continue;
       }
-      continue;
     }
-    previousLine = line;
-    same = false;
+    ds = Display;
+  print:
     file << to_hex(static_cast<uint16_t>(pc)) << "\t" << line << "\n";
   }
   file << std::flush;

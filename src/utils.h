@@ -38,6 +38,7 @@ inline void __info(const char* message) { std::cerr << message << std::endl; }
 inline void __warning(const char* message) {
   std::cerr << "\033[33m" << message << "\033[0m" << std::endl;
 }
+// Used for programming errors
 inline void __error(const char* file, size_t line, const char* message) {
   std::cerr << "\033[31m" << file << ":" << line << "\t" << message << "\033[0m"
             << std::endl;
