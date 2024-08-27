@@ -670,9 +670,9 @@ void CPU::decode(uint8_t byte) {
   }
 }
 
-void CPU::pushStack(uint8_t val) { memory[0x100 | sp--] = val; }
+void CPU::pushStack(uint8_t val) { memory.write(0x100 | sp--, val); }
 
-uint8_t CPU::popStack() { return memory[0x100 | sp]; }
+uint8_t CPU::popStack() { return memory.read(0x100 | sp); }
 
 void CPU::executeImplicit() {
   switch (op) {
@@ -760,7 +760,7 @@ void CPU::executeImplicit() {
 
   // All non complex implicit instructions will reach here
   // These reads are put in incase it has an effect on open bus behavior
-  (void)memory[pc];
+  (void)memory.read(pc);
   state = States::Fetch;
 }
 
@@ -786,12 +786,12 @@ void CPU::executeAccumulator() {
       exit(1);
   }
 
-  (void)memory[pc];
+  (void)memory.read(pc);
   state = States::Fetch;
 }
 
 void CPU::executeImmediate() {
-  uint8_t val = memory[pc++];
+  uint8_t val = memory.read(pc++);
   switch (op) {
     case Operation::ADC:
       ADC(val);
@@ -865,7 +865,7 @@ bool CPU::executeBranch() {
 
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];  // Open bus
+      (void)memory.read(pc);  // Open bus
       if (((pc & 0xFF) + static_cast<int8_t>(value)) > 0xFF) {
         state = States::Execute2;
       } else {
@@ -874,7 +874,7 @@ bool CPU::executeBranch() {
       }
       break;
     case States::Execute2:
-      (void)memory[(pc & 0xFF00) | ((pc + value) & 0x00FF)];  // Open bus
+      (void)memory.read((pc & 0xFF00) | ((pc + value) & 0x00FF));  // Open bus
       pc += static_cast<int8_t>(value);
       state = States::Fetch;
       break;
@@ -931,22 +931,22 @@ void CPU::executeInstruction() {
       break;
     // Into Memory (Accumulator ones handled specifically in DoCycle)
     case Operation::ASL:
-      memory[addr] = ASL(value);
+      memory.write(addr, ASL(value));
       break;
     case Operation::LSR:
-      memory[addr] = LSR(value);
+      memory.write(addr, LSR(value));
       break;
     case Operation::ROL:
-      memory[addr] = ROL(value);
+      memory.write(addr, ROL(value));
       break;
     case Operation::ROR:
-      memory[addr] = ROR(value);
+      memory.write(addr, ROR(value));
       break;
     case Operation::DEC:
-      memory[addr] = DEC(value);
+      memory.write(addr, DEC(value));
       break;
     case Operation::INC:
-      memory[addr] = INC(value);
+      memory.write(addr, INC(value));
       break;
     // Stores
     case Operation::STA:
@@ -1025,7 +1025,7 @@ void CPU::doCycle() {
         if (message == "r") step = false;
       }
 
-      decode(memory[pc++]);  // State transition in Decode
+      decode(memory.read(pc++));  // State transition in Decode
       assert(state != States::Fetch);
       break;
     case States::Accumulator:
@@ -1035,7 +1035,7 @@ void CPU::doCycle() {
       executeImmediate();
       break;
     case States::Branch:
-      value = memory[pc++];
+      value = memory.read(pc++);
       if (!executeBranch()) {
         state = States::Fetch;
       } else {
@@ -1043,7 +1043,7 @@ void CPU::doCycle() {
       }
       break;
     case States::Zero:
-      addr = memory[pc++];
+      addr = memory.read(pc++);
       if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
                 Operation::ROR, Operation::INC, Operation::DEC)) {
         state = States::RMWStall1;
@@ -1054,17 +1054,17 @@ void CPU::doCycle() {
       }
       break;
     case States::ZeroX:
-      (void)memory[pc++];
+      (void)memory.read(pc++);
       state = States::ZeroXY;
       value = rx;
       break;
     case States::ZeroY:
-      (void)memory[pc++];
+      (void)memory.read(pc++);
       state = States::ZeroXY;
       value = ry;
       break;
     case States::ZeroXY:
-      addr = (memory[pc - 1] + value) & 0xFF;
+      addr = (memory.read(pc - 1) + value) & 0xFF;
       if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
                 Operation::ROR, Operation::INC, Operation::DEC)) {
         state = States::RMWStall1;
@@ -1075,11 +1075,11 @@ void CPU::doCycle() {
       }
       break;
     case States::Abs1:
-      addr = memory[pc++];
+      addr = memory.read(pc++);
       state = States::Abs2;
       break;
     case States::Abs2:
-      addr |= static_cast<uint16_t>(memory[pc++]) << 8;
+      addr |= static_cast<uint16_t>(memory.read(pc++)) << 8;
       if (op == Operation::JMP) {
         executeInstruction();
       } else if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
@@ -1092,26 +1092,26 @@ void CPU::doCycle() {
       }
       break;
     case States::RMWStall1:
-      value = memory[addr];
+      value = memory.read(addr);
       state = States::RMWStall2;
       break;
     case States::RMWStall2:
-      assert(memory[addr] == value);
-      memory[addr] = value;
+      assert(memory.read(addr) == value);
+      memory.write(addr, value);
       state = States::Execute1;
       break;
     case States::AbsX:
-      addr = memory[pc++];
+      addr = memory.read(pc++);
       state = States::AbsXY;
       value = rx;
       break;
     case States::AbsY:
-      addr = memory[pc++];
+      addr = memory.read(pc++);
       state = States::AbsXY;
       value = ry;
       break;
     case States::AbsXY:
-      addr |= static_cast<uint16_t>(memory[pc++]) << 8;
+      addr |= static_cast<uint16_t>(memory.read(pc++)) << 8;
       // Writes cannot be undone so have to ensure address is completely correct
       // before doing write
       if (((addr & 0xFF) + value) > 0xFF ||
@@ -1125,8 +1125,8 @@ void CPU::doCycle() {
       }
       break;
     case States::AbsFix:
-      (void)memory[(addr & 0xFF00) |
-                   ((addr + value) & 0x00FF)];  // Open bus behavior
+      (void)memory.read((addr & 0xFF00) |
+                        ((addr + value) & 0x00FF));  // Open bus behavior
       addr += value;
       if (is_in(op, Operation::ASL, Operation::LSR, Operation::ROL,
                 Operation::ROR, Operation::INC, Operation::DEC)) {
@@ -1138,20 +1138,20 @@ void CPU::doCycle() {
       }
       break;
     case States::Indexed1:
-      value = memory[pc++];
+      value = memory.read(pc++);
       state = States::Indexed2;
       break;
     case States::Indexed2:
-      (void)memory[value];
+      (void)memory.read(value);
       value = (value + rx) & 0xFF;
       state = States::Indexed3;
       break;
     case States::Indexed3:
-      addr = memory[value];  // Value is address Low
+      addr = memory.read(value);  // Value is address Low
       state = States::Indexed4;
       break;
     case States::Indexed4:
-      addr |= (static_cast<uint16_t>(memory[(value + 1) & 0xFF]) << 8);
+      addr |= (static_cast<uint16_t>(memory.read((value + 1) & 0xFF)) << 8);
       if (op == Operation::STA) {
         state = States::Execute1;
       } else {
@@ -1159,15 +1159,15 @@ void CPU::doCycle() {
       }
       break;
     case States::IndirectIndexed1:
-      value = memory[pc++];  // Value is pointer
+      value = memory.read(pc++);  // Value is pointer
       state = States::IndirectIndexed2;
       break;
     case States::IndirectIndexed2:
-      addr = memory[value];
+      addr = memory.read(value);
       state = States::IndirectIndexed3;
       break;
     case States::IndirectIndexed3:
-      addr |= static_cast<uint16_t>(memory[(value + 1) & 0xFF]) << 8;
+      addr |= static_cast<uint16_t>(memory.read((value + 1) & 0xFF)) << 8;
       if (((addr & 0xFF) + ry) > 0xFF || (op == Operation::STA)) {
         state = States::IndirectIndexedFix;
       } else {
@@ -1176,31 +1176,31 @@ void CPU::doCycle() {
       }
       break;
     case States::IndirectIndexedFix:
-      (void)memory[(addr & 0xFF00) | ((addr + ry) & 0x00FF)];  // Open bus
+      (void)memory.read((addr & 0xFF00) | ((addr + ry) & 0x00FF));  // Open bus
       addr += ry;
       state = States::Read;
       break;
     case States::Indirect1:
-      addr = memory[pc++];
+      addr = memory.read(pc++);
       state = States::Indirect2;
       break;
     case States::Indirect2:
-      addr |= static_cast<uint16_t>(memory[pc++]) << 8;
+      addr |= static_cast<uint16_t>(memory.read(pc++)) << 8;
       state = States::Indirect3;
       break;
     case States::Indirect3:
-      value = memory[addr];
+      value = memory.read(addr);
       state = States::Indirect4;
       break;
     case States::Indirect4:
       pc = (static_cast<uint16_t>(
-                memory[(addr & 0xFF00) | ((addr + 1) & 0x00FF)])
+                memory.read((addr & 0xFF00) | ((addr + 1) & 0x00FF)))
             << 8) |
            value;
       state = States::Fetch;
       break;
     case States::Read:
-      value = memory[addr];
+      value = memory.read(addr);
       state = States::Execute1;
       // Fall through to Execute Instruction
     case States::Execute1:
@@ -1387,11 +1387,11 @@ void CPU::JMP(uint16_t addr) { pc = addr; }
 void CPU::JSR() {
   switch (state) {
     case States::Execute1:
-      addr = memory[pc++];
+      addr = memory.read(pc++);
       state = States::Execute2;
       break;
     case States::Execute2:
-      (void)memory[0x0100 | sp];
+      (void)memory.read(0x0100 | sp);
       state = States::Execute3;
       break;
     case States::Execute3:
@@ -1403,7 +1403,7 @@ void CPU::JSR() {
       state = States::Execute5;
       break;  // Push PC Low
     case States::Execute5:
-      addr |= static_cast<uint16_t>(memory[pc]) << 8;
+      addr |= static_cast<uint16_t>(memory.read(pc)) << 8;
       pc = addr;
       state = States::Fetch;
       return;
@@ -1416,9 +1416,9 @@ void CPU::JSR() {
 
 // Stores
 
-void CPU::STA(uint16_t addr) { memory[addr] = ra; }
-void CPU::STX(uint16_t addr) { memory[addr] = rx; }
-void CPU::STY(uint16_t addr) { memory[addr] = ry; }
+void CPU::STA(uint16_t addr) { memory.write(addr, ra); }
+void CPU::STX(uint16_t addr) { memory.write(addr, rx); }
+void CPU::STY(uint16_t addr) { memory.write(addr, ry); }
 
 // Implicit
 
@@ -1482,7 +1482,7 @@ PHA, PHP
 void CPU::PHA() {
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];
+      (void)memory.read(pc);
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1499,7 +1499,7 @@ void CPU::PHA() {
 void CPU::PHP() {
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];
+      (void)memory.read(pc);
       state = States::Execute2;
       return;
     case States::Execute2:
@@ -1528,7 +1528,7 @@ PLA, PLP
 void CPU::PLA() {
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];
+      (void)memory.read(pc);
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1551,7 +1551,7 @@ void CPU::PLA() {
 void CPU::PLP() {
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];
+      (void)memory.read(pc);
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1582,7 +1582,7 @@ void CPU::PLP() {
 void CPU::RTI() {
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];
+      (void)memory.read(pc);
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1613,7 +1613,7 @@ void CPU::RTI() {
 void CPU::RTS() {
   switch (state) {
     case States::Execute1:
-      (void)memory[pc];
+      (void)memory.read(pc);
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1655,8 +1655,8 @@ void CPU::RTS() {
 void CPU::BRK() {
   switch (state) {
     case States::Execute1:
-      (void)
-          memory[pc++];  // Read and discard next instruction then increment pc;
+      (void)memory.read(
+          pc++);  // Read and discard next instruction then increment pc;
       state = States::Execute2;
       break;
     case States::Execute2:
@@ -1673,11 +1673,11 @@ void CPU::BRK() {
       state = States::Execute5;
       break;
     case States::Execute5:
-      pc = memory[0xFFFE];
+      pc = memory.read(0xFFFE);
       state = States::Execute6;
       break;
     case States::Execute6: {
-      uint16_t pcHigh = memory[0xFFFF];
+      uint16_t pcHigh = memory.read(0xFFFF);
       pc |= pcHigh << 8;
       state = States::Fetch;
       return;
@@ -1751,29 +1751,29 @@ std::unordered_map<States, std::string> CPU::stateMap = {
 void CPU::dbgImp(const std::string opStr) { debugInfo += "       " + opStr; }
 
 void CPU::dbgZP(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  std::string zp = to_hex(memory[memory[pc + 1]]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  std::string zp = to_hex(memory.read(memory.read(pc + 1)));
   debugInfo += b1 + "     " + opStr + " $" + b1 + " = " + zp;
 }
 
 void CPU::dbgZPX(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  uint8_t addr = memory[pc + 1] + rx;
-  std::string zp = to_hex(memory[addr]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  uint8_t addr = memory.read(pc + 1) + rx;
+  std::string zp = to_hex(memory.read(addr));
   debugInfo +=
       b1 + "     " + opStr + " $" + b1 + ",X @ " + to_hex(addr) + " = " + zp;
 }
 
 void CPU::dbgZPY(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  uint8_t addr = memory[pc + 1] + ry;
-  std::string zp = to_hex(memory[addr]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  uint8_t addr = memory.read(pc + 1) + ry;
+  std::string zp = to_hex(memory.read(addr));
   debugInfo +=
       b1 + "     " + opStr + " $" + b1 + ",Y @ " + to_hex(addr) + " = " + zp;
 }
 
 void CPU::dbgImm(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b1 = to_hex(memory.read(pc + 1));
   debugInfo += b1 + "     " + opStr + " #$" + b1;
 }
 
@@ -1782,90 +1782,91 @@ void CPU::dbgAcc(const std::string opStr) {
 }
 
 void CPU::dbgAbs(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  std::string b2 = to_hex(memory[pc + 2]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  std::string b2 = to_hex(memory.read(pc + 2));
   uint16_t addr =
-      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+      (static_cast<uint16_t>(memory.read(pc + 2)) << 8) | (memory.read(pc + 1));
   debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1;
 
   if ((opStr == "STX") || (opStr == "STA") || (opStr == "STY") ||
       (opStr == "LDX") || (opStr == "LDA") || (opStr == "LDY") ||
       (opStr == "BIT") || (opStr == "ORA")) {
-    debugInfo += " = " + to_hex(memory[addr]);
+    debugInfo += " = " + to_hex(memory.read(addr));
   }
 }
 
 void CPU::dbgMem(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  std::string b2 = to_hex(memory[pc + 2]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  std::string b2 = to_hex(memory.read(pc + 2));
   uint16_t addr =
-      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+      (static_cast<uint16_t>(memory.read(pc + 2)) << 8) | (memory.read(pc + 1));
   debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1;
-  debugInfo += " = " + to_hex(memory[addr]);
+  debugInfo += " = " + to_hex(memory.read(addr));
 }
 
 void CPU::dbgAbsY(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  std::string b2 = to_hex(memory[pc + 2]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  std::string b2 = to_hex(memory.read(pc + 2));
   uint16_t addr1 =
-      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+      (static_cast<uint16_t>(memory.read(pc + 2)) << 8) | (memory.read(pc + 1));
   uint16_t addr2 = addr1 + ry;
   debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + ",Y @ " +
-               to_hex(addr2) + " = " + to_hex(memory[addr2]);
+               to_hex(addr2) + " = " + to_hex(memory.read(addr2));
 }
 
 void CPU::dbgAbsX(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  std::string b2 = to_hex(memory[pc + 2]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  std::string b2 = to_hex(memory.read(pc + 2));
   uint16_t addr1 =
-      (static_cast<uint16_t>(memory[pc + 2]) << 8) | (memory[pc + 1]);
+      (static_cast<uint16_t>(memory.read(pc + 2)) << 8) | (memory.read(pc + 1));
   uint16_t addr2 = addr1 + rx;
   debugInfo += b1 + " " + b2 + "  " + opStr + " $" + b2 + b1 + ",X @ " +
-               to_hex(addr2) + " = " + to_hex(memory[addr2]);
+               to_hex(addr2) + " = " + to_hex(memory.read(addr2));
 }
 
 void CPU::dbgBr(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
+  std::string b1 = to_hex(memory.read(pc + 1));
   std::string offset = to_hex(
-      static_cast<uint16_t>(pc + 2 + static_cast<int8_t>(memory[pc + 1])));
+      static_cast<uint16_t>(pc + 2 + static_cast<int8_t>(memory.read(pc + 1))));
   debugInfo += b1 + "     " + opStr + " $" + offset;
 }
 
 void CPU::dbgXInd(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  uint8_t addr1 = memory[pc + 1] + rx;
-  uint16_t addr2 = (memory[(addr1 + 1) & 0xFF] << 8) | memory[addr1];
-  std::string b2 = to_hex(memory[addr2]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  uint8_t addr1 = memory.read(pc + 1) + rx;
+  uint16_t addr2 = (memory.read((addr1 + 1) & 0xFF) << 8) | memory.read(addr1);
+  std::string b2 = to_hex(memory.read(addr2));
 
   debugInfo += b1 + "     " + opStr + " ($" + b1 + ",X) @ " + to_hex(addr1) +
                " = " + to_hex(addr2) + " = " + b2;
 }
 
 void CPU::dbgYInd(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  uint8_t addr1 = memory[pc + 1];
-  uint16_t addr2 = (memory[(addr1 + 1) & 0xFF] << 8) | memory[addr1];
+  std::string b1 = to_hex(memory.read(pc + 1));
+  uint8_t addr1 = memory.read(pc + 1);
+  uint16_t addr2 = (memory.read((addr1 + 1) & 0xFF) << 8) | memory.read(addr1);
   uint16_t addr3 = addr2 + ry;
-  std::string b2 = to_hex(memory[addr3]);
+  std::string b2 = to_hex(memory.read(addr3));
 
   debugInfo += b1 + "     " + opStr + " ($" + b1 + "),Y = " + to_hex(addr2) +
                " @ " + to_hex(addr3) + " = " + b2;
 }
 
 void CPU::dbgInd(const std::string opStr) {
-  std::string b1 = to_hex(memory[pc + 1]);
-  std::string b2 = to_hex(memory[pc + 2]);
-  uint16_t addr = (static_cast<uint16_t>(memory[pc + 2]) << 8) | memory[pc + 1];
-  std::string b3 = to_hex(memory[addr]);
-  std::string b4 = to_hex(memory[(addr & 0xFF00) | ((addr + 1) & 0x00FF)]);
+  std::string b1 = to_hex(memory.read(pc + 1));
+  std::string b2 = to_hex(memory.read(pc + 2));
+  uint16_t addr =
+      (static_cast<uint16_t>(memory.read(pc + 2)) << 8) | memory.read(pc + 1);
+  std::string b3 = to_hex(memory.read(addr));
+  std::string b4 = to_hex(memory.read((addr & 0xFF00) | ((addr + 1) & 0x00FF)));
 
   debugInfo +=
       b1 + " " + b2 + "  " + opStr + " ($" + to_hex(addr) + ") = " + b4 + b3;
 }
 
 void CPU::addDebugInfo() {
-  debugInfo = to_hex(pc) + "  " + to_hex(memory[pc]) + " ";
-  switch (memory[pc]) {
+  debugInfo = to_hex(pc) + "  " + to_hex(memory.read(pc)) + " ";
+  switch (memory.read(pc)) {
     case 0x0:
       dbgImp("BRK");
       break;

@@ -7,9 +7,9 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <string_view>
 #include <vector>
 
+#include "ppu.h"
 #include "utils.h"
 
 // Set of the currently supported Mappers
@@ -17,7 +17,7 @@ std::unordered_set<uint16_t> NesMemory::supportedMappers = {0x00};
 
 constexpr size_t ROMLOCATION = 0x3FE0;
 
-bool NesMemory::loadRom(const std::string& romPath) {
+bool NesMemory::loadRom(const std::string& romPath, PPU& ppu) {
   NesMemory::romPath = romPath;
   std::ifstream romFile(romPath, std::ifstream::binary | std::ifstream::ate);
   if (romFile.fail()) {
@@ -40,11 +40,11 @@ bool NesMemory::loadRom(const std::string& romPath) {
     return false;
   }
 
-  program_size = rom[4];
-  character_size = rom[5];
+  programSize = rom[4];
+  characterSize = rom[5];
 
   // Flags 6
-  arrangement = (rom[6] & 0x01) ? Horizontal : Vertical;
+  mirroring = (rom[6] & 0x01) ? Horizontal : Vertical;
   persistent = rom[6] & 0x02;
   trainerPresent = rom[6] & 0x04;
   mapper = static_cast<uint8_t>(rom[6]) >> 4;
@@ -57,8 +57,10 @@ bool NesMemory::loadRom(const std::string& romPath) {
   mapper |= static_cast<uint8_t>(rom[7]) & 0xF0;
 
   std::cout << "\n\n";
-  std::cout << "Rom Size: " << program_size * 16 << "KB" << std::endl;
-  std::cout << "CHR Size: " << character_size * 8 << "KB" << std::endl;
+  std::cout << "Rom Size: " << programSize * 16 << "KB" << std::endl;
+  std::cout << "CHR Size: " << characterSize * 8 << "KB" << std::endl;
+  std::cout << (mirroring == Horizontal ? "Horizontal" : "Vertical")
+            << " Mirroring" << std::endl;
   std::cout << "Persistent Memory " << (persistent ? "Present" : "Not Present")
             << std::endl;
   std::cout << "Trainer " << (trainerPresent ? "Present" : "Not Present")
@@ -71,13 +73,14 @@ bool NesMemory::loadRom(const std::string& romPath) {
     return false;
   }
 
-  // Construct Memory
-
   // TODO implement other Mappers
   // Currently only loads ROM for 0x00
 
+  // Construct Memory
   memcpy(cpuMemory.data() + ROMLOCATION,
-         rom.data() + 16 + (trainerPresent * 512), program_size * 0x4000);
+         rom.data() + 16 + (trainerPresent * 512), programSize * 0x4000);
+  this->ppu = &ppu;
+  ppu.loadRom(rom, trainerPresent);
 
   return true;
 }
@@ -88,11 +91,6 @@ uint8_t& NesMemory::operator[](size_t i) {
     return internalRam[i % 0x0800];
   }
 
-  if (i < 0x4000 && i >= 0x2000) {
-    // TODO PPU registers
-    return internalRam[0];
-  }
-
   if (i < 0x4018 && i >= 0x4000) {
     return APUIOMemory[i - 0x4000];
   }
@@ -106,11 +104,13 @@ uint8_t& NesMemory::operator[](size_t i) {
   }
 
   if (i >= 0x8000) {
-    i = ((i - 0x8000) % (program_size * 0x4000)) + ROMLOCATION;
+    i = ((i - 0x8000) % (programSize * 0x4000)) + ROMLOCATION;
     return cpuMemory[i];
   }
-  error(
-      ("Index: " + std::to_string(i) + " Not Implemented Correctly!").c_str());
+
+  error(("Index: 0x" + to_hex(static_cast<uint16_t>(i)) +
+         " Not Implemented Correctly!")
+            .c_str());
   exit(1);
 }
 
@@ -119,11 +119,6 @@ const uint8_t& NesMemory::operator[](size_t i) const {
     return internalRam[i % 0x0800];
   }
 
-  if (i < 0x4000 && i >= 0x2000) {
-    // TODO PPU registers
-    return internalRam[0];
-  }
-
   if (i < 0x4018 && i >= 0x4000) {
     return APUIOMemory[i - 0x4000];
   }
@@ -137,15 +132,82 @@ const uint8_t& NesMemory::operator[](size_t i) const {
   }
 
   if (i >= 0x8000) {
-    i = ((i - 0x8000) % (program_size * 0x4000)) + ROMLOCATION;
+    i = ((i - 0x8000) % (programSize * 0x4000)) + ROMLOCATION;
     return cpuMemory[i];
   }
-  error(
-      ("Index: " + std::to_string(i) + " Not Implemented Correctly!").c_str());
+  error(("Index: 0x" + to_hex(static_cast<uint16_t>(i)) +
+         " Not Implemented Correctly!")
+            .c_str());
   exit(1);
 }
 
-void NesMemory::dump() const {
+void NesMemory::write(uint16_t addr, uint8_t val) {
+  if (addr < 0x4000 && addr >= 0x2000) {
+    addr %= 0x2008;
+  }
+  switch (addr) {
+    case 0x2000:
+      ppu->writectrl(val);
+      break;
+    case 0x2001:
+      ppu->writemask(val);
+      break;
+    case 0x2002:
+      ppu->writestatus(val);
+      break;
+    case 0x2003:
+      ppu->writeOAMAddr(val);
+      break;
+    case 0x2004:
+      ppu->writeOAMData(val);
+      break;
+    case 0x2005:
+      ppu->writescroll(val);
+      break;
+    case 0x2006:
+      ppu->writeaddr(val);
+      break;
+    case 0x2007:
+      ppu->writedata(val);
+      break;
+    case 0x4014:
+      ppu->writeOAMDMA(val);
+      break;
+    default:
+      operator[](addr) = val;
+      return;
+  }
+}
+
+uint8_t NesMemory::read(uint16_t addr) {
+  if (addr < 0x4000 && addr >= 0x2000) {
+    addr %= 0x2008;
+  }
+  switch (addr) {
+    case 0x2000:
+      return ppu->readctrl();
+    case 0x2001:
+      return ppu->readmask();
+    case 0x2002:
+      return ppu->readstatus();
+    case 0x2003:
+      return ppu->readOAMAddr();
+    case 0x2004:
+      return ppu->readOAMData();
+    case 0x2005:
+      return ppu->readscroll();
+    case 0x2006:
+      return ppu->readaddr();
+    case 0x2007:
+      return ppu->readdata();
+    case 0x4014:
+      return ppu->readOAMDMA();
+    default:
+      return operator[](addr);
+  }
+}
+
+void NesMemory::dump() {
   std::ofstream file("NES.dump");
 
   enum DisplayState { Display, Repeat, Skip } ds;
@@ -154,7 +216,7 @@ void NesMemory::dump() const {
     uint8_t numZeroes = 0;
     std::string line = "";
     for (size_t i = 0; i < 0x10; ++i) {
-      uint8_t val = operator[](pc + i);
+      uint8_t val = read(pc + i);
       line += to_hex(val) + " ";
       if (val == 0x00) {
         numZeroes++;

@@ -7,6 +7,7 @@
 
 #include "cpu.h"
 #include "nesMemory.h"
+#include "ppu.h"
 #include "utils.h"
 
 int main(int argc, char** argv) {
@@ -25,6 +26,7 @@ int main(int argc, char** argv) {
   // }
 
   NesMemory memory;
+  PPU ppu;
 
   std::string romPath;
   std::vector<char> rom;
@@ -40,7 +42,7 @@ LoadRom:
       return 0;
     }
 
-    if (!memory.loadRom(romPath)) {
+    if (!memory.loadRom(romPath, ppu)) {
       continue;
     }
     break;

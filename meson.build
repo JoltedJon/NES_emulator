@@ -4,6 +4,7 @@ sdl2_dep = dependency('sdl2')
 incdir = include_directories('include')
 
 srcs = [
+  'src/ppu.cpp',
   'src/nesMemory.cpp',
   'src/cpu.cpp',
   'src/main.cpp',

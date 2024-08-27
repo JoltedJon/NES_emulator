@@ -7,12 +7,15 @@
 #include <unordered_set>
 #include <vector>
 
+#include "ppu.h"
+
 class NesMemory {
  private:
   std::array<uint8_t, 0x800> internalRam;  // 2KB
-  std::array<uint8_t*, 0x8> PPURegisters;
-  std::array<uint8_t, 0x20> APUIOMemory;  // 0x20 Bytes
-  std::array<uint8_t, 0xBFE0> cpuMemory;  // 0xBFE0 bytes
+  std::array<uint8_t, 0x20> APUIOMemory;   // 0x20 Bytes
+  std::array<uint8_t, 0xBFE0> cpuMemory;   // 0xBFE0 bytes
+
+  PPU* ppu;
 
   static std::unordered_set<uint16_t> supportedMappers;
 
@@ -20,10 +23,10 @@ class NesMemory {
   std::vector<char> rom;
 
   // ROM Header information
-  uint8_t program_size;    // multiply by 16KB -> 0x4000 bytes
-  uint8_t character_size;  // multiply by 8KB -> 0x2000 bytes
+  uint8_t programSize;    // multiply by 16KB -> 0x4000 bytes
+  uint8_t characterSize;  // multiply by 8KB -> 0x2000 bytes
 
-  enum Nametable : bool { Vertical, Horizontal } arrangement;
+  enum Nametable : bool { Vertical, Horizontal } mirroring;
   bool persistent;
   bool trainerPresent;
 
@@ -31,12 +34,15 @@ class NesMemory {
 
  public:
   NesMemory() = default;
-  bool loadRom(const std::string& romPath);
+  bool loadRom(const std::string& romPath, PPU& ppu);
 
   uint8_t& operator[](size_t);
   const uint8_t& operator[](size_t) const;
 
-  void dump() const;
+  void write(uint16_t addr, uint8_t val);
+  uint8_t read(uint16_t addr);
+
+  void dump();
 
  private:
 };
