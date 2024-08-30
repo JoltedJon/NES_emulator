@@ -7,6 +7,7 @@ srcs = [
   'src/ppu.cpp',
   'src/nesMemory.cpp',
   'src/cpu.cpp',
+  'src/window.cpp',
   'src/main.cpp',
 ]
 

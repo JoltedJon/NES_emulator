@@ -1,12 +1,20 @@
 #include "ppu.h"
 
+#include <SDL2/SDL.h>
+
 #include <cstring>
 #include <fstream>
 #include <vector>
 
 #include "utils.h"
 
-PPU::PPU()
+/*
+1 CPU Cycle = 3 PPU Cycles
+https://www.nesdev.org/wiki/PPU_rendering
+Line By Line Timing
+*/
+
+PPU::PPU(Window* window)
     : ctrl(0x00),
       mask(0x00),
       status(0xA0),
@@ -15,9 +23,10 @@ PPU::PPU()
       scroll(0x00),
       addr(0x00),
       data(0x00),
-      OAMDMA(0x00) {}
+      OAMDMA(0x00),
+      window(window) {}
 
-void PPU::loadRom(std::vector<char> &inRom, bool trainerPresent) {
+void PPU::loadRom(std::vector<char>& inRom, bool trainerPresent) {
   characterSize = inRom[5];
   mirroring = (inRom[6] & 0x01) ? Horizontal : Vertical;
   mapper = static_cast<uint8_t>(inRom[6]) >> 4;

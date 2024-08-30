@@ -1222,7 +1222,6 @@ void CPU::doCycle() {
 /////////////////////////////////////////////////////////////////////////////////
 //                                Instructions
 /////////////////////////////////////////////////////////////////////////////////
-#pragma region Instructions
 
 // Into Register
 
@@ -2742,7 +2741,7 @@ void CPU::addDebugInfo() {
       break;
   }
 
-  int length = 48;
+  size_t length = 48;
   while (debugInfo.length() < length) {
     debugInfo += ' ';
   }

@@ -3,30 +3,18 @@
 #include <iostream>
 #include <vector>
 
-// #include "sdlpp.hpp"
-
+#include "SDL_timer.h"
 #include "cpu.h"
 #include "nesMemory.h"
 #include "ppu.h"
 #include "utils.h"
+#include "window.h"
 
 int main(int argc, char** argv) {
-  // sdl::Init init(SDL_INIT_EVERYTHING);
-  // sdl::Window w("NES Emulator", 50, 50, 500, 500, SDL_WINDOW_RESIZABLE);
-  // SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
-
-  // bool done = false;
-
-  // sdl::EventHandler e;
-  // e.quit = [&done](const SDL_QuitEvent&) { done = true; };
-
-  // while (!done) {
-  //   while (e.poll()) {
-  //   }
-  // }
+  Window win;
 
   NesMemory memory;
-  PPU ppu;
+  PPU ppu(&win);
 
   std::string romPath;
   std::vector<char> rom;
@@ -34,8 +22,9 @@ int main(int argc, char** argv) {
 LoadRom:
   while (true) {
     romPath = "";
-    std::cout << "Load Rom: ";
-    std::cin >> romPath;
+    // std::cout << "Load Rom: ";
+    // std::cin >> romPath;
+    romPath = "roms/nestest.nes";
 
     if (std::cin.eof() || romPath == "") {
       std::cout << std::endl;
@@ -46,6 +35,12 @@ LoadRom:
       continue;
     }
     break;
+  }
+
+  while (true) {
+    ppu.display();
+    SDL_Delay(30);
+    win.poll();
   }
 
   CPU cpu(memory);

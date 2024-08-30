@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "window.h"
+
 class PPU {
  private:
   uint8_t ctrl;
@@ -23,16 +25,39 @@ class PPU {
   enum Nametable : bool { Vertical, Horizontal } mirroring;
   uint16_t mapper;
 
-  std::vector<char> *rom;
+  std::vector<char>* rom;
   size_t characterStart;
 
   std::array<uint8_t, 0x4000> memory;
 
+  struct OAM {
+    uint8_t y;
+    struct {
+      uint8_t bank : 1;
+      uint8_t tile : 7;
+    } index;
+    struct {
+      uint8_t palette : 2;
+      uint8_t __ : 3;
+      uint8_t priority : 1;
+      uint8_t flipHorizontal : 1;
+      uint8_t flipVertical : 1;
+    } attributes;
+    uint8_t x;
+  };
+
+  std::array<OAM, 64> OAMMemory;
+
+  Window* window;
+
  public:
-  PPU();
+  PPU(Window* window);
 
-  void loadRom(std::vector<char> &inRom, bool trainerPresent);
+  void loadRom(std::vector<char>& inRom, bool trainerPresent);
 
+  inline void display() { window->displayPatternTable(memory.data()); }
+
+  // Memory Mapped IO
   uint8_t readctrl();
   uint8_t readmask();
   uint8_t readstatus();
