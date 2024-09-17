@@ -9,6 +9,8 @@
 
 #include "ppu.h"
 
+class CPU;
+
 class NesMemory {
  private:
   std::array<uint8_t, 0x800> internalRam;  // 2KB
@@ -16,6 +18,7 @@ class NesMemory {
   std::array<uint8_t, 0xBFE0> cpuMemory;   // 0xBFE0 bytes
 
   PPU* ppu;
+  CPU* cpu;
 
   static std::unordered_set<uint16_t> supportedMappers;
 
@@ -35,6 +38,7 @@ class NesMemory {
  public:
   NesMemory() = default;
   bool loadRom(const std::string& romPath, PPU& ppu);
+  inline void setCPU(CPU* inCPU) { cpu = inCPU; }
 
   uint8_t& operator[](size_t);
   const uint8_t& operator[](size_t) const;

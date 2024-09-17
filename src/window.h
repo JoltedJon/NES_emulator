@@ -41,6 +41,8 @@ class Window {
   Window();
   ~Window();
 
+  void drawFrame(const Frame& f);
+
   void displayPatternTable(uint8_t* patternTable);
 
   void poll();

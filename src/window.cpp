@@ -52,75 +52,7 @@ Window::~Window() {
   SDL_Quit();
 }
 
-void Window::poll() {
-  SDL_Event e;
-  while (SDL_PollEvent(&e)) {
-    if (e.type == SDL_QUIT) exit(0);
-  }
-}
-
-/*
-60 0 1 1 0 0 0 0 0
-60 0 1 1 0 0 0 0 0
-66 0 1 1 0 0 1 1 0
-6E 0 1 1 0 1 1 1 0
-7C 0 1 1 1 1 1 0 0
-67 0 1 1 0 0 1 1 1
-63 0 1 1 0 0 0 1 1
-00 0 0 0 0 0 0 0 0
-
-6060666E7C676300
-*/
-
-void Window::displayPatternTable(uint8_t* patternTable) {
-  int x = 0;
-  int y = 0;
-  enum PixelFormat { TRANSPARENT = 0, COLOR1 = 1, COLOR2 = 2, COLOR3 = 3 };
-  Frame f(window);
-  for (size_t i = 0; i < 0x2000; i += 16) {
-    std::vector<PixelFormat> pixels;
-    for (int byte = 0; byte < 8; ++byte) {
-      for (int bit = 0; bit < 8; ++bit) {
-        uint8_t bit1 = (patternTable[i + byte] >> (7 - bit)) & 0x01;
-        uint8_t bit2 = ((patternTable[i + byte + 8] >> (7 - bit)) & 0x01) << 1;
-        pixels.push_back(static_cast<PixelFormat>(bit1 | bit2));
-      }
-    }
-    for (auto pixel : pixels) {
-      switch (pixel) {
-        case TRANSPARENT:
-          f.setPixel(x, y, 0xFF, 0xFF, 0xFF, 0x00);
-          break;
-        case COLOR1:
-          f.setPixel(x, y, 0xB6, 0xB6, 0xB6, 0xFF);
-          break;
-        case COLOR2:
-          f.setPixel(x, y, 0x67, 0x67, 0x67, 0xFF);
-          break;
-        case COLOR3:
-          f.setPixel(x, y, 0x00, 0x00, 0x00, 0xFF);
-          break;
-      }
-      ++x;
-      if (x % 8 == 0) {
-        x -= 8;
-        y++;
-      }
-      std::cout << y << std::endl;
-    }
-
-    if (x + 8 >= screenWidth) {
-      x = 0;
-      y += 8;
-    } else {
-      y -= 8;
-      x += 8;
-    }
-    if (y >= screenHeight) {
-      break;
-    }
-  }
-
+void Window::drawFrame(const Frame& f) {
   SDL_LockSurface(screen);
   SDL_memcpy(screen->pixels, f.pixels.data(),
              NESWIDTH * NESHEIGHT * sizeof(uint32_t));
@@ -138,4 +70,123 @@ void Window::displayPatternTable(uint8_t* patternTable) {
   SDL_RenderCopy(renderer, texture, nullptr, &dstRect);
   SDL_RenderPresent(renderer);
   SDL_DestroyTexture(texture);
+}
+
+void Window::poll() {
+  SDL_Event e;
+  while (SDL_PollEvent(&e)) {
+    if (e.type == SDL_QUIT) exit(0);
+  }
+}
+
+void Window::displayPatternTable(uint8_t* patternTable) {
+  enum PixelFormat { TRANSPARENT = 0, COLOR1 = 1, COLOR2 = 2, COLOR3 = 3 };
+
+  int x = 0;
+  int y = 0;
+
+  Frame f(window);
+  memset(f.pixels.data(), 0, f.pixels.size() * sizeof(uint32_t));
+
+  int num = 0;
+  // Pattern Table 1
+  for (size_t i = 0; i < 0x1000; i += 16) {
+    std::vector<PixelFormat> pixels;
+    for (int byte = 0; byte < 8; ++byte) {
+      for (int bit = 0; bit < 8; ++bit) {
+        uint8_t bit1 = (patternTable[i + byte] >> (7 - bit)) & 0x01;
+        uint8_t bit2 = ((patternTable[i + byte + 8] >> (7 - bit)) & 0x01) << 1;
+        pixels.push_back(static_cast<PixelFormat>(bit1 | bit2));
+      }
+    }
+
+    for (auto pixel : pixels) {
+      switch (pixel) {
+        case TRANSPARENT:
+          f.setPixel(x, y, 0xFF, 0xFF, 0xFF, 0x00);
+          break;
+        case COLOR1:
+          f.setPixel(x, y, 0xB6, 0xB6, 0xB6, 0xFF);
+          break;
+        case COLOR2:
+          f.setPixel(x, y, 0x67, 0x67, 0x67, 0xFF);
+          break;
+        case COLOR3:
+          f.setPixel(x, y, 0x00, 0x00, 0x00, 0xFF);
+          break;
+      }
+
+      ++x;
+      if (x % 8 == 0) {
+        x -= 8;
+        y++;
+      }
+    }
+
+    ++num;
+    if (num == 16) {
+      num = 0;
+      x = 0;
+      y += 8;
+    } else if (x + 8 >= screenWidth) {
+      x = 0;
+      y += 8;
+    } else {
+      y -= 8;
+      x += 8;
+    }
+    if (y >= screenHeight) {
+      break;
+    }
+  }
+
+  // Pattern Table 2
+  y = 0;
+  x = 128;
+  for (size_t i = 0x1000; i < 0x2000; i += 16) {
+    std::vector<PixelFormat> pixels;
+    for (int byte = 0; byte < 8; ++byte) {
+      for (int bit = 0; bit < 8; ++bit) {
+        uint8_t bit1 = (patternTable[i + byte] >> (7 - bit)) & 0x01;
+        uint8_t bit2 = ((patternTable[i + byte + 8] >> (7 - bit)) & 0x01) << 1;
+        pixels.push_back(static_cast<PixelFormat>(bit1 | bit2));
+      }
+    }
+
+    for (auto pixel : pixels) {
+      switch (pixel) {
+        case TRANSPARENT:
+          f.setPixel(x, y, 0xFF, 0xFF, 0xFF, 0x00);
+          break;
+        case COLOR1:
+          f.setPixel(x, y, 0xB6, 0xB6, 0xB6, 0xFF);
+          break;
+        case COLOR2:
+          f.setPixel(x, y, 0x67, 0x67, 0x67, 0xFF);
+          break;
+        case COLOR3:
+          f.setPixel(x, y, 0x00, 0x00, 0x00, 0xFF);
+          break;
+      }
+
+      ++x;
+      if (x % 8 == 0) {
+        x -= 8;
+        y++;
+      }
+    }
+
+    if (x + 8 >= screenWidth) {
+      x = 128;
+      y += 8;
+    } else {
+      y -= 8;
+      x += 8;
+    }
+    if (y >= screenHeight) {
+      break;
+    }
+  }
+
+  drawFrame(f);
 }

@@ -3,7 +3,6 @@
 #include <iostream>
 #include <vector>
 
-#include "SDL_timer.h"
 #include "cpu.h"
 #include "nesMemory.h"
 #include "ppu.h"
@@ -37,13 +36,8 @@ LoadRom:
     break;
   }
 
-  while (true) {
-    ppu.display();
-    SDL_Delay(30);
-    win.poll();
-  }
-
   CPU cpu(memory);
+  memory.setCPU(&cpu);
 
   std::string message;
   while (true) {
@@ -74,8 +68,14 @@ LoadRom:
     }
   }
 
+  exit(0);
+
   while (true) {
+    // PPU runs 3 times for every 1 cycle of CPU
+    // if(ppu.getCycles() % 3 == 0)
     cpu.doCycle();
+    // bool NMI = ppu.doCycle();
+    // if(NMI) cpu.setNMI(NMI);
   }
   return 0;
 }

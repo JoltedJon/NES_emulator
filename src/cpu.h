@@ -63,7 +63,11 @@ enum class Operation {
   TSX,
   TXA,
   TXS,
-  TYA
+  TYA,
+
+  // Interrupts
+  NMI,
+  IRQ,
 };
 
 enum class States {
@@ -113,6 +117,8 @@ enum class States {
   Execute4,
   Execute5,
   Execute6,
+
+  OAM_DMA,
 };
 
 struct StatusFlags {
@@ -156,6 +162,10 @@ class CPU {
   Operation op;
 
   States state;
+  bool IRQ;
+  bool NMI;
+  int OAM_DMA_Cycles;
+  uint16_t OAM_DMA_Addr;
 
   uint16_t addr;  // For any addresses that need to be modified per cycle
   uint8_t value;
@@ -179,6 +189,15 @@ class CPU {
   void reset();
 
   void doCycle();
+
+  inline void queueOAM_DMA(uint16_t page) {
+    // 256 read + 256 write + 1 dummy read +1 if on odd cycle
+    OAM_DMA_Cycles = 512;
+    OAM_DMA_Addr = page << 8;
+  }
+
+  inline void setNMI(bool val) { NMI = val; }
+  inline void setIRQ(bool val) { IRQ = val; }
 
   // Debug
   inline void setPC(uint16_t newPC) { pc = newPC; }
@@ -223,6 +242,8 @@ class CPU {
   bool executeBranch();
 
   void executeInstruction();
+
+  void executeDMA();
 
   void __compare(uint8_t first, uint8_t second);
 
@@ -303,6 +324,9 @@ class CPU {
   void PLP();
   void RTI();
   void RTS();
+
+  // Interrupt
+  void INT();
 
   // Debug Information
   void addDebugInfo();

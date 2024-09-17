@@ -14,6 +14,8 @@ CPU::CPU(NesMemory& memory)
       sp(0),
       rf(),
       state(States::Fetch),
+      IRQ(false),
+      NMI(false),
       memory(memory),
       cycle(7),
       step(false),
@@ -1003,6 +1005,10 @@ void CPU::executeInstruction() {
     case Operation::BVS:
       executeBranch();
       return;
+    case Operation::NMI:
+    case Operation::IRQ:
+      INT();
+      return;
 
     default:
       error(
@@ -1014,6 +1020,25 @@ void CPU::executeInstruction() {
   state = States::Fetch;
 }
 
+void CPU::executeDMA() {
+  switch (state) {
+    case States::OAM_DMA:
+      if (OAM_DMA_Cycles % 2 == 0) {
+        // Read
+        value = memory.read(OAM_DMA_Addr++);
+      } else {
+        // Write
+        memory.write(0x2004, value);
+      }
+      OAM_DMA_Cycles--;
+      if (OAM_DMA_Cycles == 0) state = States::Fetch;
+      break;
+    default:
+      error("Invalid DMA State");
+      exit(1);
+  }
+}
+
 void CPU::doCycle() {
   switch (state) {
     case States::Fetch:
@@ -1023,6 +1048,25 @@ void CPU::doCycle() {
         std::cin >> message;
         if (std::cin.eof()) exit(0);
         if (message == "r") step = false;
+      }
+
+      if (NMI) {
+        op = Operation::NMI;
+        state = States::Execute1;
+        (void)memory.read(pc);
+        break;
+      } else if (IRQ && !rf.irqDisable) {
+        op = Operation::IRQ;
+        state = States::Execute1;
+        (void)memory.read(pc);
+        break;
+      }
+      // TODO, DMC DMA has higher Priority than OAM DMA
+      else if (OAM_DMA_Cycles > 0) {
+        // Need allignment cycle if on odd cycle
+        if (cycle % 2 == 0) state = States::OAM_DMA;
+        (void)memory.read(pc);
+        break;
       }
 
       decode(memory.read(pc++));  // State transition in Decode
@@ -1683,7 +1727,44 @@ void CPU::BRK() {
     }
     default:
       error("Invalid BRK stage");
-      memory.dump();
+      if (printLog) memory.dump();
+      exit(1);
+  }
+}
+
+// TODO interrupt hijacking
+void CPU::INT() {
+  switch (state) {
+    case States::Execute1:
+      (void)memory.read(pc);
+      state = States::Execute2;
+      break;
+    case States::Execute2:
+      pushStack(pc >> 8);
+      state = States::Execute3;
+      break;
+    case States::Execute3:
+      pushStack(pc & 0x00FF);
+      state = States::Execute4;
+      break;
+    case States::Execute4:
+      rf.breakFlag = false;
+      pushStack(getStatus());
+      state = States::Execute5;
+    case States::Execute5:
+      if (op == Operation::IRQ) rf.irqDisable = true;
+      pc = (op == Operation::NMI) ? memory.read(0xFFFA) : memory.read(0xFFFE);
+      state = States::Execute6;
+    case States::Execute6: {
+      if (op == Operation::NMI) NMI = false;
+      uint16_t PCH =
+          (op == Operation::NMI) ? memory.read(0xFFFB) : memory.read(0xFFFF);
+      pc = PCH << 8;
+      state = States::Fetch;
+      break;
+    }
+    default:
+      error("Invalid Interrupt State");
       exit(1);
   }
 }

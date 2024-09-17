@@ -9,6 +9,7 @@
 #include <iostream>
 #include <vector>
 
+#include "cpu.h"
 #include "ppu.h"
 #include "utils.h"
 
@@ -171,7 +172,7 @@ void NesMemory::write(uint16_t addr, uint8_t val) {
       ppu->writedata(val);
       break;
     case 0x4014:
-      ppu->writeOAMDMA(val);
+      cpu->queueOAM_DMA(val);
       break;
     default:
       operator[](addr) = val;
